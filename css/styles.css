@@ -1209,6 +1209,43 @@ input[aria-invalid=true],select[aria-invalid=true],textarea[aria-invalid=true] {
   padding-left: 13px!important;
 }
 
+.phone-input-group {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+  direction: ltr;
+}
+
+.phone-country-select {
+  width: auto !important;
+  min-width: 155px;
+  max-width: 185px;
+  background: var(--input);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 10px 12px;
+  cursor: pointer;
+  direction: rtl;
+  text-align: right;
+  transition: border .2s, box-shadow .2s;
+}
+
+.phone-country-select:focus {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 3px rgba(23, 139, 131, 0.15);
+  outline: none;
+}
+
+.phone-input-group .input-icon input {
+  font-family: inherit;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+
 .textarea-meta {
   display: flex;
   align-items: start;

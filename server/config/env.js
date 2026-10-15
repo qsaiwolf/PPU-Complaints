@@ -44,8 +44,22 @@ export const config = {
   uploadDir: path.resolve(rootDir, process.env.UPLOAD_DIR || './uploads'),
   maxFileSize: 5 * 1024 * 1024, // 5MB
   
-  // Email simulation
+  // Base Application URL
+  appUrl: process.env.APP_URL || `http://localhost:${process.env.SERVER_PORT || process.env.PORT || 8080}`,
+
+  // Email & SMTP settings
   enableEmailLog: process.env.ENABLE_EMAIL_CONSOLE_LOG !== 'false',
+  smtp: {
+    enabled: process.env.ENABLE_SMTP === 'true',
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: Number(process.env.SMTP_PORT || 587),
+    secure: process.env.SMTP_SECURE === 'true', // true for 465, false for 587
+    user: process.env.SMTP_USER || '',
+    pass: process.env.SMTP_PASS || '',
+    from: process.env.SMTP_FROM || '"نظام الشكاوى - جامعة بوليتكنك فلسطين" <complaints@ppu.edu.ps>',
+    replyTo: process.env.SMTP_REPLY_TO || 'complaints@ppu.edu.ps'
+  },
   
   rootDir
 };
+

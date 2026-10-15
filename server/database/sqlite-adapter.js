@@ -54,6 +54,9 @@ class SQLiteAdapter {
         full_name TEXT NOT NULL,
         student_id TEXT,
         email TEXT NOT NULL,
+        phone_country TEXT,
+        phone TEXT,
+        phone_full TEXT,
         service_id TEXT NOT NULL REFERENCES services(id),
         location TEXT NOT NULL,
         title TEXT NOT NULL,
@@ -102,6 +105,26 @@ class SQLiteAdapter {
       );
     `);
 
+    // Safe dynamic migration for existing SQLite databases
+    try {
+      const columns = this.db.prepare("PRAGMA table_info(complaints)").all();
+      const colNames = columns.map(c => c.name);
+
+      if (!colNames.includes('phone_country')) {
+        this.db.exec("ALTER TABLE complaints ADD COLUMN phone_country TEXT;");
+      }
+      if (!colNames.includes('phone')) {
+        this.db.exec("ALTER TABLE complaints ADD COLUMN phone TEXT;");
+      }
+      if (!colNames.includes('phone_full')) {
+        this.db.exec("ALTER TABLE complaints ADD COLUMN phone_full TEXT;");
+      }
+
+      this.db.exec("CREATE INDEX IF NOT EXISTS idx_complaints_phone ON complaints(phone_full);");
+    } catch (e) {
+      console.warn('[SQLITE MIGRATION NOTE]', e.message);
+    }
+
     // Seed default services
     const insertService = this.db.prepare(`
       INSERT OR IGNORE INTO services (id, name_ar, icon, description)
@@ -147,8 +170,8 @@ class SQLiteAdapter {
 
   async createComplaint(data) {
     const stmt = this.db.prepare(`
-      INSERT INTO complaints (id, full_name, student_id, email, service_id, location, title, description, status, priority, official_reply, attachment_url, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, '', ?, datetime('now'), datetime('now'))
+      INSERT INTO complaints (id, full_name, student_id, email, phone_country, phone, phone_full, service_id, location, title, description, status, priority, official_reply, attachment_url, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, '', ?, datetime('now'), datetime('now'))
     `);
 
     stmt.run(
@@ -156,6 +179,9 @@ class SQLiteAdapter {
       data.fullName,
       data.studentId || null,
       data.email,
+      data.phoneCountry || null,
+      data.phone || null,
+      data.phoneFull || null,
       data.service,
       data.location,
       data.title,
@@ -202,9 +228,9 @@ class SQLiteAdapter {
     }
 
     if (filters.search) {
-      sql += ' AND (c.id LIKE ? OR c.full_name LIKE ? OR c.title LIKE ? OR c.location LIKE ? OR c.email LIKE ?)';
+      sql += ' AND (c.id LIKE ? OR c.full_name LIKE ? OR c.title LIKE ? OR c.location LIKE ? OR c.email LIKE ? OR c.phone LIKE ? OR c.phone_full LIKE ?)';
       const term = `%${filters.search}%`;
-      params.push(term, term, term, term, term);
+      params.push(term, term, term, term, term, term, term);
     }
 
     sql += ' ORDER BY c.created_at DESC';

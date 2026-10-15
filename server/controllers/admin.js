@@ -1,13 +1,15 @@
 /**
  * Admin Controller
- * Handles authentication, complaint status transitions, staff notes, analytics, and CSV exports.
+ * Handles authentication, complaint status transitions, staff notes, canned replies, SMTP notifications, and CSV exports.
  */
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { getDatabaseAdapter } from '../database/connection.js';
 import { config } from '../config/env.js';
 import { STATUSES, PRIORITIES } from '../config/constants.js';
+import { CANNED_CATEGORIES, CANNED_REPLIES, interpolateCannedReply } from '../config/canned-replies.js';
 import emailService from '../services/email.js';
+import { buildWhatsAppLink } from '../utils/phone.js';
 
 export async function login(req, res, next) {
   try {
@@ -83,7 +85,7 @@ export async function getMe(req, res, next) {
 export async function updateComplaint(req, res, next) {
   try {
     const id = String(req.params.id || '').trim().toUpperCase();
-    const { status, officialReply, priority } = req.body;
+    const { status, officialReply, priority, sendEmail } = req.body;
 
     const adapter = await getDatabaseAdapter();
     const existing = await adapter.findComplaintById(id);
@@ -120,19 +122,33 @@ export async function updateComplaint(req, res, next) {
       performedBy: req.admin.fullName
     });
 
-    // If resolved, notify student
-    if (parsedStatus === 3 && officialReply) {
+    // Notify student: if resolved or if sendEmail is explicitly true
+    const replyText = officialReply !== undefined ? String(officialReply).trim() : existing.official_reply;
+
+    if (parsedStatus === 3 && replyText) {
       emailService.sendComplaintResolvedNotification({
         email: existing.email,
         fullName: existing.full_name,
         complaintId: existing.id,
-        officialReply
-      }).catch(e => console.error('Resolution email trigger failed:', e.message));
+        officialReply: replyText,
+        serviceName: existing.service_name || existing.service_id
+      }).catch(e => console.error('[RESOLUTION EMAIL ERROR]', e.message));
+    } else if (sendEmail && replyText) {
+      const trackingUrl = `${config.appUrl}/#track/${encodeURIComponent(existing.id)}`;
+      emailService.sendCustomCannedNotification({
+        email: existing.email,
+        fullName: existing.full_name,
+        complaintId: existing.id,
+        subject: `تحديث بخصوص الشكوى #${existing.id} — جامعة بوليتكنك فلسطين`,
+        bodyText: replyText,
+        trackingUrl,
+        badgeText: 'تحديث حالة الشكوى'
+      }).catch(e => console.error('[UPDATE EMAIL ERROR]', e.message));
     }
 
     res.json({
       success: true,
-      message: 'تم تحديث حالة الشكوى وإضافة الرد بنجاح.',
+      message: 'تم تحديث حالة الشكوى وحفظ الإجراء بنجاح.',
       data: updated
     });
   } catch (error) {
@@ -194,7 +210,7 @@ export async function exportCsv(req, res, next) {
 
     // UTF-8 BOM for Microsoft Excel Arabic support
     let csv = '\uFEFF';
-    csv += 'رقم الشكوى,اسم الطالب,التخصص,البريد الإلكتروني,الخدمة,الموقع,عنوان المشكلة,الحالة,الأولوية,الرد الرسمي,تاريخ التقديم\n';
+    csv += 'رقم الشكوى,اسم الطالب,التخصص,البريد الإلكتروني,دولة الهاتف,رقم الهاتف,رقم الواتساب الدولي,الخدمة,الموقع,عنوان المشكلة,الحالة,الأولوية,الرد الرسمي,تاريخ التقديم\n';
 
     for (const c of complaints) {
       const row = [
@@ -202,6 +218,9 @@ export async function exportCsv(req, res, next) {
         `"${(c.full_name || '').replace(/"/g, '""')}"`,
         `"${(c.major || '').replace(/"/g, '""')}"`,
         `"${(c.email || '').replace(/"/g, '""')}"`,
+        `"${(c.phone_country || '').toUpperCase()}"`,
+        `"${(c.phone || '').replace(/"/g, '""')}"`,
+        `"${(c.phone_full ? '+' + c.phone_full : '').replace(/"/g, '""')}"`,
         `"${(c.service_name || c.service_id || '').replace(/"/g, '""')}"`,
         `"${(c.location || '').replace(/"/g, '""')}"`,
         `"${(c.title || '').replace(/"/g, '""')}"`,
@@ -216,6 +235,140 @@ export async function exportCsv(req, res, next) {
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="ppu-complaints-export-${new Date().toISOString().slice(0, 10)}.csv"`);
     res.send(csv);
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Return canned reply catalog with all categories and templates
+ */
+export async function getCannedReplies(req, res, next) {
+  try {
+    res.json({
+      success: true,
+      data: {
+        categories: CANNED_CATEGORIES,
+        replies: CANNED_REPLIES
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Send notification to student (Email via SMTP or prepare WhatsApp link)
+ */
+export async function sendCannedNotification(req, res, next) {
+  try {
+    const { complaintId, cannedId, customBody, customSubject, channel } = req.body;
+
+    if (!complaintId) {
+      return res.status(400).json({ success: false, message: 'رقم الشكوى مطلوب.' });
+    }
+
+    const adapter = await getDatabaseAdapter();
+    const complaint = await adapter.findComplaintById(complaintId);
+
+    if (!complaint) {
+      return res.status(404).json({ success: false, message: 'الشكوى غير موجودة.' });
+    }
+
+    const canned = CANNED_REPLIES.find(r => r.id === cannedId);
+    const trackingUrl = `${config.appUrl}/#track/${encodeURIComponent(complaint.id)}`;
+
+    const variables = {
+      studentName: complaint.full_name || 'الطالب',
+      complaintId: complaint.id,
+      title: complaint.title || '',
+      serviceName: complaint.service_name || complaint.service_id || '',
+      location: complaint.location || '',
+      trackingUrl
+    };
+
+    // Determine subject and bodies
+    const emailSubject = customSubject || (canned ? interpolateCannedReply(canned.emailSubject, variables) : `إشعار بخصوص شكواكم رقم ${complaint.id}`);
+    const emailBody = customBody || (canned ? interpolateCannedReply(canned.emailBody, variables) : '');
+    const waText = canned ? interpolateCannedReply(canned.whatsappMessage, variables) : (customBody || '');
+
+    if (channel === 'whatsapp') {
+      if (!complaint.phone_full) {
+        return res.status(400).json({
+          success: false,
+          message: 'لم يقم الطالب بإدخال رقم هاتف عند تقديم هذه الشكوى.'
+        });
+      }
+
+      const waLink = buildWhatsAppLink(complaint.phone_full, waText);
+
+      // Log action in audit logs
+      await adapter.addAuditLog({
+        complaintId: complaint.id,
+        oldStatus: complaint.status,
+        newStatus: complaint.status,
+        actionType: 'WHATSAPP_DISPATCH',
+        performedBy: req.admin.fullName,
+        details: `تم إنشاء رسالة واتساب للرقم الدولي (+${complaint.phone_full})`
+      });
+
+      return res.json({
+        success: true,
+        message: 'تم تجهيز رابط محادثة واتساب بنجاح.',
+        data: {
+          phoneFull: complaint.phone_full,
+          waLink,
+          messageText: waText
+        }
+      });
+    }
+
+    // Default: Channel is Email via SMTP
+    const sendResult = await emailService.sendCustomCannedNotification({
+      email: complaint.email,
+      fullName: complaint.full_name,
+      complaintId: complaint.id,
+      subject: emailSubject,
+      bodyText: emailBody,
+      trackingUrl,
+      badgeText: canned ? canned.title : 'إشعار إداري رسمي'
+    });
+
+    // Log action in audit logs
+    await adapter.addAuditLog({
+      complaintId: complaint.id,
+      oldStatus: complaint.status,
+      newStatus: complaint.status,
+      actionType: 'EMAIL_DISPATCH',
+      performedBy: req.admin.fullName,
+      details: `تم إرسال إشعار بريد إلكتروني رسمي (${emailSubject}) عبر ${sendResult.sentViaSmtp ? 'SMTP' : 'محاكي الإشعارات'}`
+    });
+
+    res.json({
+      success: true,
+      message: sendResult.sentViaSmtp ? 'تم إرسال الإشعار إلى بريد الطالب بنجاح عبر خادم SMTP.' : 'تم تسجيل الإشعار بنجاح (Simulation mode).',
+      data: {
+        sentViaSmtp: sendResult.sentViaSmtp,
+        email: complaint.email,
+        subject: emailSubject
+      }
+    });
+
+  } catch (error) {
+    next(error);
+  }
+}
+
+/**
+ * Check SMTP connection health
+ */
+export async function getSmtpStatus(req, res, next) {
+  try {
+    const status = await emailService.verifySmtp();
+    res.json({
+      success: true,
+      data: status
+    });
   } catch (error) {
     next(error);
   }

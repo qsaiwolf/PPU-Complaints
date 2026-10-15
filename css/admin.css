@@ -587,6 +587,83 @@
 }
 
 /* Quick Canned Reply Chips */
+/* Canned System Card & Category Tabs */
+.canned-system-card {
+  background: var(--surface-soft);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+
+.canned-system-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.canned-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--teal);
+}
+
+.canned-badge svg {
+  width: 16px;
+  height: 16px;
+}
+
+.canned-category-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.canned-cat-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: inherit;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all .15s ease;
+}
+
+.canned-cat-btn:hover {
+  color: var(--text);
+  border-color: var(--teal);
+}
+
+.canned-cat-btn.active {
+  background: var(--navy);
+  color: #FFFFFF !important;
+  border-color: var(--navy);
+  box-shadow: 0 2px 6px rgba(22, 50, 79, 0.2);
+}
+
+:root[data-theme=dark] .canned-cat-btn.active {
+  background: var(--teal);
+  border-color: var(--teal);
+  color: #0E2A32 !important;
+}
+
+.canned-cat-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
 .canned-chips {
   display: flex;
   flex-wrap: wrap;
@@ -595,11 +672,11 @@
 }
 
 .canned-chip {
-  background: var(--tint);
+  background: var(--surface);
   border: 1px solid rgba(23, 139, 131, 0.3);
-  color: var(--teal);
+  color: var(--text);
   border-radius: 999px;
-  padding: 4px 12px;
+  padding: 5px 14px;
   font-size: 12px;
   font-family: inherit;
   font-weight: 600;
@@ -608,9 +685,50 @@
 }
 
 .canned-chip:hover {
-  background: var(--teal);
-  color: #FFFFFF;
+  background: var(--tint);
+  color: var(--teal);
+  border-color: var(--teal);
 }
+
+.canned-chip.active {
+  background: var(--teal);
+  color: #FFFFFF !important;
+  border-color: var(--teal);
+  font-weight: 700;
+}
+
+:root[data-theme=dark] .canned-chip.active {
+  color: #0E2A32 !important;
+}
+
+/* WhatsApp and Action Buttons */
+.whatsapp-btn {
+  background: #25D366 !important;
+  color: #FFFFFF !important;
+  border: none !important;
+  font-weight: 700 !important;
+  transition: background .15s ease, transform .15s ease;
+}
+
+.whatsapp-btn:hover {
+  background: #20BA5A !important;
+  transform: translateY(-1px);
+  color: #FFFFFF !important;
+}
+
+.whatsapp-btn svg {
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
+}
+
+.button.small {
+  min-height: 36px;
+  padding: 6px 14px;
+  font-size: 13px;
+  border-radius: 7px;
+}
+
 
 /* Inspector Action Form */
 .action-section {

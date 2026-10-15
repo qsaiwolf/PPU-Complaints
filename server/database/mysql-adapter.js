@@ -57,6 +57,9 @@ class MySQLAdapter {
         full_name VARCHAR(100) NOT NULL,
         student_id VARCHAR(50) NULL,
         email VARCHAR(100) NOT NULL,
+        phone_country VARCHAR(5) NULL,
+        phone VARCHAR(30) NULL,
+        phone_full VARCHAR(30) NULL,
         service_id VARCHAR(30) NOT NULL,
         location VARCHAR(150) NOT NULL,
         title VARCHAR(200) NOT NULL,
@@ -70,7 +73,8 @@ class MySQLAdapter {
         INDEX idx_complaints_service (service_id),
         INDEX idx_complaints_status (status),
         INDEX idx_complaints_priority (priority),
-        INDEX idx_complaints_created (created_at DESC)
+        INDEX idx_complaints_created (created_at DESC),
+        INDEX idx_complaints_phone (phone_full)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;`,
 
       `CREATE TABLE IF NOT EXISTS ratings (
@@ -106,6 +110,31 @@ class MySQLAdapter {
 
     for (const sql of ddl) {
       await this.pool.query(sql);
+    }
+
+    // Safe dynamic migration for existing MySQL database
+    try {
+      const [colRows] = await this.pool.query(
+        `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'complaints'`,
+        [config.mysql.database]
+      );
+      const existingCols = colRows.map(r => r.COLUMN_NAME.toLowerCase());
+      if (!existingCols.includes('phone_country')) {
+        await this.pool.query(`ALTER TABLE complaints ADD COLUMN phone_country VARCHAR(5) NULL AFTER email`);
+      }
+      if (!existingCols.includes('phone')) {
+        await this.pool.query(`ALTER TABLE complaints ADD COLUMN phone VARCHAR(30) NULL AFTER phone_country`);
+      }
+      if (!existingCols.includes('phone_full')) {
+        await this.pool.query(`ALTER TABLE complaints ADD COLUMN phone_full VARCHAR(30) NULL AFTER phone`);
+        try {
+          await this.pool.query(`CREATE INDEX idx_complaints_phone ON complaints(phone_full)`);
+        } catch (idxErr) {
+          // Ignored if index already exists
+        }
+      }
+    } catch (e) {
+      console.warn('[MYSQL MIGRATION NOTE]', e.message);
     }
 
     // Seed default services
@@ -153,13 +182,16 @@ class MySQLAdapter {
 
   async createComplaint(data) {
     await this.pool.query(`
-      INSERT INTO complaints (id, full_name, student_id, email, service_id, location, title, description, status, priority, official_reply, attachment_url, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?, '', ?, NOW(), NOW())
+      INSERT INTO complaints (id, full_name, student_id, email, phone_country, phone, phone_full, service_id, location, title, description, status, priority, official_reply, attachment_url, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, '', ?, NOW(), NOW())
     `, [
       data.id,
       data.fullName,
       data.studentId || null,
       data.email,
+      data.phoneCountry || null,
+      data.phone || null,
+      data.phoneFull || null,
       data.service,
       data.location,
       data.title,
@@ -205,9 +237,9 @@ class MySQLAdapter {
     }
 
     if (filters.search) {
-      sql += ' AND (c.id LIKE ? OR c.full_name LIKE ? OR c.title LIKE ? OR c.location LIKE ? OR c.email LIKE ?)';
+      sql += ' AND (c.id LIKE ? OR c.full_name LIKE ? OR c.title LIKE ? OR c.location LIKE ? OR c.email LIKE ? OR c.phone LIKE ? OR c.phone_full LIKE ?)';
       const term = `%${filters.search}%`;
-      params.push(term, term, term, term, term);
+      params.push(term, term, term, term, term, term, term);
     }
 
     sql += ' ORDER BY c.created_at DESC';

@@ -215,6 +215,22 @@
                   <small id="email-note" class="field-hint">استخدم بريدك الجامعي. يُتحقّق حاليًا من صيغة البريد دون تقييد النطاق.</small>
                   <span id="email-error" class="field-error" aria-live="polite"></span>
                 </div>
+                <div class="field">
+                  <label for="phone">رقم الهاتف للتواصل والواتساب <small class="text-muted" style="font-size: 12px; font-weight: normal; color: var(--muted);">(اختياري — لتلقي إشعارات الشكوى وتحديثاتها فورًا)</small>
+                  </label>
+                  <div class="phone-input-group" dir="ltr">
+                    <select id="phone-country" name="phoneCountry" aria-label="مقدمة الدولة" class="phone-country-select">
+                      <option value="ps" selected>🇵🇸 +970 (فلسطين)</option>
+                      <option value="il">🇮🇱 +972 (الداخل)</option>
+                    </select>
+                    <div class="input-icon" style="flex: 1;">
+                      <input id="phone" name="phone" type="tel" autocomplete="tel" placeholder="059xxxxxxx أو 050xxxxxxx" maxlength="20" aria-describedby="phone-note phone-error">
+                      <span data-icon="chat" title="واتساب"></span>
+                    </div>
+                  </div>
+                  <small id="phone-note" class="field-hint">اختر مقدمة دولتك (+970 لفلسطين أو +972 لمناطق 48) لتصلك إشعارات المتابعة والردود الرسمية عبر واتساب.</small>
+                  <span id="phone-error" class="field-error" aria-live="polite"></span>
+                </div>
                 <div class="form-bottom">
                   <span class="quiet-note">
                     <span data-icon="lock"></span>البيانات تبقى في متصفحك</span>
@@ -405,6 +421,12 @@
                   <dt>
                     <span data-icon="clock"></span>تاريخ الإرسال</dt>
                   <dd id="result-date">
+                  </dd>
+                </div>
+                <div id="result-phone-item" hidden>
+                  <dt>
+                    <span data-icon="chat"></span>رقم الواتساب المسجل</dt>
+                  <dd id="result-phone" dir="ltr">
                   </dd>
                 </div>
               </dl>
@@ -848,6 +870,15 @@
               <span id="inspect-student-email" dir="ltr"></span>
             </div>
             <div class="info-item">
+              <label>الهاتف / الواتساب:</label>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span id="inspect-student-phone" dir="ltr" style="font-weight:600;">—</span>
+                <a id="inspect-wa-btn" href="#" target="_blank" rel="noopener noreferrer" class="button subtle small whatsapp-btn" style="display:none; padding:4px 10px; font-size:12px; gap:4px; text-decoration:none;" title="فتح محادثة واتساب مع الطالب">
+                  <span data-icon="chat"></span> مراسلة واتساب
+                </a>
+              </div>
+            </div>
+            <div class="info-item">
               <label>التخصص الأكاديمي:</label>
               <span id="inspect-student-major"></span>
             </div>
@@ -891,18 +922,57 @@
               </div>
             </div>
 
-            <!-- الردود الجاهزة السريعة -->
-            <label style="display:block; font-size:12px; color:var(--muted); margin-bottom:6px;">ردود نموذجية جاهزة (اضغط للإدراج):</label>
-            <div class="canned-chips">
-              <button type="button" class="canned-chip" data-reply="تم توجيه فريق الصيانة للموقع المذكور وسيتم إنهاء العطل اليوم.">فريق الصيانة للموقع</button>
-              <button type="button" class="canned-chip" data-reply="تم فحص الشبكة واستبدال الأجهزة التالفة واختبار الاتصال بنجاح.">صيانة الشبكة والإنترنت</button>
-              <button type="button" class="canned-chip" data-reply="اكتملت أعمال النظافة والتعقيم في الموقع المحدد.">اكتمال أعمال النظافة</button>
-              <button type="button" class="canned-chip" data-reply="تمت صيانة المقاعد وتأهيل القاعة لتكون جاهزة للمحاضرات.">صيانة القاعات والمقاعد</button>
+            <!-- منصة الردود الجاهزة السريعة وقنوات التواصل -->
+            <div class="canned-system-card">
+              <div class="canned-system-header">
+                <span class="canned-badge">
+                  <span data-icon="chat"></span> الردود النموذجية السريعة
+                </span>
+                <span style="font-size: 12px; color: var(--muted);">اختر الفئة والقالب لتعبئة الرد أو الإرسال الفوري</span>
+              </div>
+
+              <!-- فئات الردود الأربعة: المتابعة، الاستدعاء، تأخر الاستجابة، الانتهاء -->
+              <div class="canned-category-tabs" id="canned-category-tabs">
+                <button type="button" class="canned-cat-btn active" data-cat="follow_up">
+                  <span data-icon="gear"></span> المتابعة والتنسيق
+                </button>
+                <button type="button" class="canned-cat-btn" data-cat="summon">
+                  <span data-icon="user"></span> الاستدعاء والمراجعة
+                </button>
+                <button type="button" class="canned-cat-btn" data-cat="delayed">
+                  <span data-icon="clock"></span> تأخر الاستجابة
+                </button>
+                <button type="button" class="canned-cat-btn" data-cat="resolved">
+                  <span data-icon="check"></span> الانتهاء والحل
+                </button>
+              </div>
+
+              <!-- القوالب المتاحة ضمن الفئة النشطة -->
+              <div id="canned-templates-list" class="canned-chips" style="margin-top: 10px;">
+                <!-- يُملأ ديناميكياً -->
+              </div>
+
+              <!-- أزرار الإجراء السريع للقالب المختار -->
+              <div class="canned-channel-actions" style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px;">
+                <button type="button" id="canned-insert-reply-btn" class="button outline small" title="إدراج نص الرد الرسمي في صندوق الرد">
+                  <span data-icon="edit"></span> إدراج في الرد الرسمي
+                </button>
+                <button type="button" id="canned-open-whatsapp-btn" class="button subtle small whatsapp-btn" title="فتح محادثة واتساب مع الطالب بنص الرسالة المنسق">
+                  <span data-icon="chat"></span> مراسلة عبر واتساب 💬
+                </button>
+                <button type="button" id="canned-send-email-btn" class="button outline small" title="إرسال إشعار رسمي عبر خادم SMTP">
+                  <span data-icon="mail"></span> إرسال بريد رسمي (SMTP) ✉️
+                </button>
+              </div>
             </div>
 
             <div class="action-field">
               <label for="inspect-reply-textarea">الرد الرسمي للجامعة (سيظهر للطالب عند المتابعة):</label>
               <textarea id="inspect-reply-textarea" rows="3" placeholder="اكتب رد إدارة الجامعة الرسمي هنا..."></textarea>
+              <div style="margin-top: 8px; display: flex; align-items: center; gap: 8px; font-size: 13px;">
+                <input type="checkbox" id="inspect-send-email-toggle" style="width: 16px; height: 16px; accent-color: var(--navy); cursor: pointer;">
+                <label for="inspect-send-email-toggle" style="margin: 0; cursor: pointer; color: var(--text);">إرسال إشعار فوري إلى بريد الطالب عبر خادم SMTP عند حفظ التغييرات</label>
+              </div>
             </div>
           </div>
 

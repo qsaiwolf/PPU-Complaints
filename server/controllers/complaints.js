@@ -1,11 +1,12 @@
 /**
  * Complaints Controller
- * Handles student submission, tracking, auto-priority classification, and search.
+ * Handles student submission, tracking, auto-priority classification, phone/whatsapp validation, and search.
  */
 import crypto from 'node:crypto';
 import { getDatabaseAdapter } from '../database/connection.js';
 import { SERVICES, STATUSES } from '../config/constants.js';
 import emailService from '../services/email.js';
+import { normalizePhoneNumber, buildWhatsAppLink } from '../utils/phone.js';
 
 function normalizeId(value) {
   return String(value || '')
@@ -26,9 +27,9 @@ function detectAutoPriority(title = '', description = '') {
 
 export async function createComplaint(req, res, next) {
   try {
-    const { fullName, major, studentId, email, service, location, title, description } = req.body;
+    const { fullName, major, studentId, email, phoneCountry, phone, service, location, title, description } = req.body;
 
-    // Strict validation
+    // Strict validation of mandatory fields
     if (!fullName || !email || !service || !location || !title || !description) {
       return res.status(400).json({
         success: false,
@@ -54,6 +55,37 @@ export async function createComplaint(req, res, next) {
       });
     }
 
+    // Validate phone and country prefix if provided
+    let phoneData = {
+      phoneCountry: null,
+      phone: null,
+      phoneFull: null
+    };
+
+    if (phone && String(phone).trim()) {
+      const selectedCountry = String(phoneCountry || 'ps').trim().toLowerCase();
+      if (!['ps', 'il'].includes(selectedCountry)) {
+        return res.status(400).json({
+          success: false,
+          message: 'رمز الدولة غير مدعوم. البلدان المدعومة فقط: ps (فلسطين +970) أو il (الداخل ومناطق 48 +972).'
+        });
+      }
+
+      const phoneNorm = normalizePhoneNumber(selectedCountry, phone);
+      if (!phoneNorm.isValid) {
+        return res.status(400).json({
+          success: false,
+          message: phoneNorm.error
+        });
+      }
+
+      phoneData = {
+        phoneCountry: phoneNorm.country,
+        phone: phoneNorm.nationalNumber,
+        phoneFull: phoneNorm.waNumber
+      };
+    }
+
     const adapter = await getDatabaseAdapter();
 
     // Generate unique complaint ID: PPU-YYYY-XXXX
@@ -76,6 +108,9 @@ export async function createComplaint(req, res, next) {
       major: major ? String(major).trim() : '',
       studentId: studentId ? String(studentId).trim() : '',
       email: String(email).trim().toLowerCase(),
+      phoneCountry: phoneData.phoneCountry,
+      phone: phoneData.phone,
+      phoneFull: phoneData.phoneFull,
       service,
       location: String(location).trim(),
       title: String(title).trim(),
@@ -84,14 +119,15 @@ export async function createComplaint(req, res, next) {
       attachmentUrl
     });
 
-    // Send confirmation email simulation
+    // Send confirmation email via SMTP or Console Simulation
     emailService.sendComplaintConfirmation({
       email: newComplaint.email,
       fullName: newComplaint.full_name,
       complaintId: newComplaint.id,
       title: newComplaint.title,
-      serviceName: validService.name
-    }).catch(e => console.error('Email trigger failed:', e.message));
+      serviceName: validService.name,
+      phone: phoneData.phoneFull ? `+${phoneData.phoneFull}` : null
+    }).catch(e => console.error('[EMAIL NOTIFICATION ERROR]', e.message));
 
     res.status(201).json({
       success: true,
@@ -101,6 +137,9 @@ export async function createComplaint(req, res, next) {
         status: newComplaint.status,
         statusText: STATUSES[newComplaint.status],
         priority: newComplaint.priority,
+        phone: newComplaint.phone,
+        phoneCountry: newComplaint.phone_country,
+        phoneFull: newComplaint.phone_full,
         createdAt: newComplaint.created_at
       }
     });
@@ -133,6 +172,10 @@ export async function getComplaintById(req, res, next) {
       fullName: complaint.full_name,
       major: complaint.major || '',
       email: complaint.email,
+      phone: complaint.phone || '',
+      phoneCountry: complaint.phone_country || '',
+      phoneFull: complaint.phone_full || '',
+      waLink: complaint.phone_full ? buildWhatsAppLink(complaint.phone_full) : null,
       service: complaint.service_id,
       serviceName: complaint.service_name || complaint.service_id,
       serviceIcon: complaint.service_icon || 'chat',
@@ -147,7 +190,7 @@ export async function getComplaintById(req, res, next) {
       createdAt: complaint.created_at,
       updatedAt: complaint.updated_at,
       rating: complaint.rating,
-      logs: complaint.logs.map(log => ({
+      logs: (complaint.logs || []).map(log => ({
         oldStatus: log.old_status,
         newStatus: log.new_status,
         actionType: log.action_type,
@@ -182,6 +225,11 @@ export async function listComplaints(req, res, next) {
       id: c.id,
       fullName: c.full_name,
       major: c.major || '',
+      email: c.email,
+      phone: c.phone || '',
+      phoneCountry: c.phone_country || '',
+      phoneFull: c.phone_full || '',
+      waLink: c.phone_full ? buildWhatsAppLink(c.phone_full) : null,
       service: c.service_id,
       serviceName: c.service_name || c.service_id,
       location: c.location,

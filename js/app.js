@@ -158,6 +158,34 @@
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || $('email').validity.typeMismatch) emailError = 'أدخل بريدًا إلكترونيًا صحيحًا، مثل name@example.edu.';
     else if (config.acceptedEmailDomains.length && !config.acceptedEmailDomains.map(domain => domain.toLowerCase()).includes(email.split('@')[1].toLowerCase())) emailError = 'استخدم بريدًا من النطاقات الجامعية المعتمدة.';
     setError('email', emailError);
+
+    const phoneInput = $('phone');
+    if (phoneInput) {
+      let rawPhone = phoneInput.value.trim();
+      if (rawPhone) {
+        rawPhone = rawPhone.replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+        phoneInput.value = rawPhone;
+        const cleaned = rawPhone.replace(/[\s\-\(\)\.]/g, '');
+        const country = $('phone-country') ? $('phone-country').value : 'ps';
+        let phoneError = '';
+        if (country === 'ps') {
+          if (!/^(0?5[96]\d{7})$/.test(cleaned)) {
+            phoneError = 'أدخل رقم جوال فلسطيني صحيح يبدأ بـ 059 أو 056 (9-10 أرقام).';
+          }
+        } else if (country === 'il') {
+          if (!/^(0?5\d{8})$/.test(cleaned)) {
+            phoneError = 'أدخل رقم هاتف محمول صحيح للداخل (48) يبدأ بـ 05 (9-10 أرقام).';
+          }
+        } else {
+          phoneError = 'الدولة غير مدعومة. البلدان المدعومة هي فلسطين والداخل 48 فقط.';
+        }
+        setError('phone', phoneError);
+        if (phoneError) valid = false;
+      } else {
+        setError('phone', '');
+      }
+    }
+
     return valid && !emailError;
   }
   function validateDetails() {
@@ -218,8 +246,13 @@
     return {
       fullName: $('full-name').value.trim(),
       major: $('major').value === 'other' ? $('other-major').value.trim() : $('major').value,
-      email: $('email').value.trim(), service: $('service').value,
-      location: $('location').value.trim(), title: $('complaint-title').value.trim(), description: $('description').value.trim()
+      email: $('email').value.trim(),
+      phoneCountry: $('phone-country') ? $('phone-country').value : 'ps',
+      phone: $('phone') ? $('phone').value.trim() : '',
+      service: $('service').value,
+      location: $('location').value.trim(),
+      title: $('complaint-title').value.trim(),
+      description: $('description').value.trim()
     };
   }
   function renderSummary(root, entries) {
@@ -230,7 +263,16 @@
   }
   function showReview() {
     const data = getFormData();
-    renderSummary($('review-student'), [['الاسم', data.fullName], ['التخصص', data.major], ['البريد', data.email]]);
+    const studentEntries = [
+      ['الاسم', data.fullName],
+      ['التخصص', data.major],
+      ['البريد', data.email]
+    ];
+    if (data.phone) {
+      const countryLabel = data.phoneCountry === 'il' ? '+972 (الداخل 48)' : '+970 (فلسطين)';
+      studentEntries.push(['واتساب المتابعة', `${data.phone} (${countryLabel})`]);
+    }
+    renderSummary($('review-student'), studentEntries);
     renderSummary($('review-details'), [['الخدمة', config.services.find(service => service.id === data.service).name], ['الموقع', data.location], ['العنوان', data.title], ['الوصف', data.description]]);
     $('review-image-note').hidden = !attachmentUrl;
     $('save-error').textContent = '';
@@ -302,6 +344,8 @@
   function resetComplaintForm() {
     savedComplaint = null;
     $('complaint-form').reset();
+    if ($('phone-country')) $('phone-country').value = 'ps';
+    if ($('phone')) $('phone').value = '';
     $('other-major-field').hidden = true;
     $('other-major').required = false;
     $('description-count').textContent = '0 / 2000';
@@ -348,6 +392,19 @@
     $('result-service').textContent = (config.services.find(service => service.id === record.service) || {}).name || record.serviceName || record.service;
     $('result-location').textContent = record.location;
     $('result-date').textContent = new Intl.DateTimeFormat('ar-PS', { dateStyle: 'medium', timeZone: 'Asia/Hebron' }).format(new Date(record.createdAt));
+    
+    // Display phone / WhatsApp if available
+    if ($('result-phone-item') && $('result-phone')) {
+      const fullPhone = record.phone_full || record.phoneFull;
+      const rawPhone = record.phone;
+      if (fullPhone || rawPhone) {
+        $('result-phone-item').hidden = false;
+        $('result-phone').textContent = fullPhone ? `+${fullPhone}` : rawPhone;
+      } else {
+        $('result-phone-item').hidden = true;
+      }
+    }
+
     $('result-description').textContent = record.description;
     $('result-status').className = 'status-badge status-' + record.status;
     $('result-status').replaceChildren(icon(statusIcons[record.status]), document.createTextNode(config.statuses[record.status]));

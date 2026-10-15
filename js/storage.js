@@ -51,7 +51,33 @@
       id = 'PPU-' + new Date().getFullYear() + '-' + Array.from(random, number => number.toString(36).slice(-4).padStart(4, '0')).join('').toUpperCase();
     } while (records.some(item => item.id === id));
     
-    const complaint = { id, fullName: data.fullName, major: data.major, email: data.email, service: data.service, location: data.location, title: data.title, description: data.description, status: 0, reply: '', createdAt: new Date().toISOString(), isDemo: false };
+    const phoneCountry = data.phoneCountry || 'ps';
+    const phone = data.phone ? String(data.phone).trim() : '';
+    let phoneFull = '';
+    if (phone) {
+      const dial = phoneCountry === 'il' ? '972' : '970';
+      const cleanDigits = phone.replace(/^0+/, '').replace(/[^\d]/g, '');
+      phoneFull = `${dial}${cleanDigits}`;
+    }
+
+    const complaint = {
+      id,
+      fullName: data.fullName,
+      major: data.major,
+      email: data.email,
+      phoneCountry,
+      phone,
+      phoneFull,
+      waLink: phoneFull ? `https://wa.me/${phoneFull}` : null,
+      service: data.service,
+      location: data.location,
+      title: data.title,
+      description: data.description,
+      status: 0,
+      reply: '',
+      createdAt: new Date().toISOString(),
+      isDemo: false
+    };
     write(config.storageKey, [...records, complaint]);
     return { ...complaint };
   }
@@ -103,6 +129,8 @@
       formData.append('major', data.major || '');
       formData.append('studentId', data.studentId || '');
       formData.append('email', data.email);
+      if (data.phoneCountry) formData.append('phoneCountry', data.phoneCountry);
+      if (data.phone) formData.append('phone', data.phone);
       formData.append('service', data.service);
       formData.append('location', data.location);
       formData.append('title', data.title);
@@ -129,6 +157,10 @@
         fullName: data.fullName,
         major: data.major,
         email: data.email,
+        phoneCountry: serverData.phoneCountry || data.phoneCountry || 'ps',
+        phone: serverData.phone || data.phone || '',
+        phoneFull: serverData.phoneFull || '',
+        waLink: serverData.phoneFull ? `https://wa.me/${serverData.phoneFull}` : null,
         service: data.service,
         location: data.location,
         title: data.title,
@@ -165,6 +197,10 @@
             fullName: d.fullName,
             major: d.major,
             email: d.email,
+            phone: d.phone || '',
+            phoneCountry: d.phoneCountry || '',
+            phoneFull: d.phoneFull || '',
+            waLink: d.waLink || (d.phoneFull ? `https://wa.me/${d.phoneFull}` : null),
             service: d.service,
             serviceName: d.serviceName,
             location: d.location,
@@ -250,7 +286,7 @@
     return json.data;
   }
 
-  async function updateComplaintStatusAsync(id, { status, officialReply, priority }) {
+  async function updateComplaintStatusAsync(id, { status, officialReply, priority, sendEmail }) {
     const token = getAuthToken();
     if (!token) throw new Error('يتطلب الوصول تسجيل الدخول كمسؤول.');
 
@@ -260,7 +296,7 @@
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
       },
-      body: JSON.stringify({ status, officialReply, priority })
+      body: JSON.stringify({ status, officialReply, priority, sendEmail })
     });
 
     const json = await res.json();
@@ -303,6 +339,52 @@
     return json.data;
   }
 
+  async function getCannedRepliesAsync() {
+    const token = getAuthToken();
+    const headers = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const res = await fetch('/api/v1/admin/canned-replies', { headers });
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      throw new Error(json.message || 'تعذر جلب قائمة الردود الجاهزة.');
+    }
+    return json.data;
+  }
+
+  async function sendCannedNotificationAsync(payload) {
+    const token = getAuthToken();
+    if (!token) throw new Error('يتطلب الوصول تسجيل الدخول كمسؤول.');
+
+    const res = await fetch('/api/v1/admin/canned-replies/send', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      throw new Error(json.message || 'تعذر إرسال الإشعار.');
+    }
+    return json;
+  }
+
+  async function getSmtpStatusAsync() {
+    const token = getAuthToken();
+    const headers = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    const res = await fetch('/api/v1/admin/smtp/status', { headers });
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      throw new Error(json.message || 'تعذر فحص حالة خادم SMTP.');
+    }
+    return json.data;
+  }
+
   window.PPURepository = Object.freeze({
     // Synchronous (compat & offline)
     getComplaints,
@@ -321,6 +403,9 @@
     updateComplaintStatusAsync,
     addInternalNoteAsync,
     getStatsAsync,
+    getCannedRepliesAsync,
+    sendCannedNotificationAsync,
+    getSmtpStatusAsync,
     adminLoginAsync,
     getAuthToken,
     getStoredAdmin,

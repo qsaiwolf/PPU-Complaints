@@ -12,6 +12,9 @@
 
   let currentComplaints = [];
   let selectedComplaint = null;
+  let cannedRepliesCatalog = null;
+  let activeCannedCategory = 'follow_up';
+  let selectedCannedTemplate = null;
 
   function $(id) {
     return document.getElementById(id);
@@ -255,6 +258,30 @@
       $('inspect-title').textContent = complaint.title || '';
       $('inspect-description').textContent = complaint.description || '';
 
+      // Student Phone and WhatsApp direct link
+      const phoneFull = complaint.phone_full || complaint.phoneFull || '';
+      const rawPhone = complaint.phone || '';
+      const phoneEl = $('inspect-student-phone');
+      const waBtn = $('inspect-wa-btn');
+
+      if (phoneEl) {
+        if (phoneFull || rawPhone) {
+          phoneEl.textContent = phoneFull ? `+${phoneFull}` : rawPhone;
+        } else {
+          phoneEl.textContent = 'غير مسجل';
+        }
+      }
+
+      if (waBtn) {
+        if (phoneFull) {
+          waBtn.style.display = 'inline-flex';
+          const defaultMsg = `مرحباً ${complaint.fullName || complaint.full_name || 'طالبنا العزيز'}، بخصوص شكواك رقم #${complaint.id} في جامعة بوليتكنك فلسطين: `;
+          waBtn.href = `https://wa.me/${phoneFull}?text=${encodeURIComponent(defaultMsg)}`;
+        } else {
+          waBtn.style.display = 'none';
+        }
+      }
+
       // Image
       const imgContainer = $('inspect-attachment-container');
       const imgEl = $('inspect-attachment-img');
@@ -270,6 +297,14 @@
       $('inspect-priority-select').value = complaint.priority || 'medium';
       $('inspect-reply-textarea').value = complaint.reply || complaint.officialReply || '';
 
+      // Reset email notification toggle
+      if ($('inspect-send-email-toggle')) {
+        $('inspect-send-email-toggle').checked = false;
+      }
+
+      // Setup Canned Responses UI
+      await setupCannedRepliesUI(complaint);
+
       // Populate timeline
       renderTimeline(complaint.logs || []);
 
@@ -281,6 +316,146 @@
     } catch (e) {
       toast(`خطأ: ${e.message}`);
     }
+  }
+
+  const DEFAULT_CANNED_CATALOG = {
+    follow_up: {
+      id: 'follow_up',
+      nameAr: 'المتابعة والتنسيق',
+      templates: [
+        {
+          id: 'follow_up_general',
+          title: 'متابعة الشكوى والتنسيق مع الاختصاص',
+          officialReply: 'تحية طيبة، تمت إحالة الشكوى إلى طاقم الاختصاص الميداني وجارٍ العمل على اتخاذ الإجراء المناسب.',
+          whatsappText: 'السلام عليكم {studentName}، بخصوص شكواكم #{complaintId} ({title}) في جامعة بوليتكنك فلسطين: نود إعلامكم بأن الشكوى قيد المتابعة الحثيثة مع الدائرة المعنية ({service}) لاتخاذ الإجراء المناسب. يمكنك المتابعة عبر: {appUrl}/#track/{complaintId}'
+        },
+        {
+          id: 'follow_up_inspection',
+          title: 'جدولة كشف فني ميداني',
+          officialReply: 'تم تعيين فريق فني للمعاينة الميدانية في الموقع المحدد وسيتم فحص الحالة وإصلاح أي خلل.',
+          whatsappText: 'أهلاً بك {studentName}، تم توجيه فريق الصيانة للمعاينة الميدانية في ({location}) بخصوص الشكوى #{complaintId}. سنوافيكم بالنتيجة قريباً.'
+        }
+      ]
+    },
+    summon: {
+      id: 'summon',
+      nameAr: 'الاستدعاء والمراجعة',
+      templates: [
+        {
+          id: 'summon_dean_office',
+          title: 'مراجعة عمادة شؤون الطلبة',
+          officialReply: 'يرجى من الطالب التكرم بمراجعة مكتب عمادة شؤون الطلبة لاستكمال توضيح بعض تفاصيل الشكوى.',
+          whatsappText: 'طالبنا العزيز {studentName}، يرجى مراجعة عمادة شؤون الطلبة مصطحباً بطاقتك الجامعية بخصوص شكواكم رقم #{complaintId} لاستكمال المتابعة.'
+        },
+        {
+          id: 'summon_dept_chair',
+          title: 'مراجعة رئيس الدائرة المعنية',
+          officialReply: 'يرجى التوجه إلى مكتب رئيس الدائرة المعنية لمناقشة موضوع الشكوى والوصول إلى حل ملائم.',
+          whatsappText: 'أهلاً {studentName}، يرجى التوجه لمكتب رئيس دائرة {service} بخصوص الشكوى #{complaintId} خلال ساعات الدوام الرسمي لمناقشة التفاصيل.'
+        }
+      ]
+    },
+    delayed: {
+      id: 'delayed',
+      nameAr: 'تأخر الاستجابة والاعتذار',
+      templates: [
+        {
+          id: 'delayed_apology_supply',
+          title: 'اعتذار بسبب توريد قطع غيار أو فحص مخبري',
+          officialReply: 'نعتذر عن التأخر في إنهاء المعالجة نظراً لانتظار توريد المواد اللازمة. جاري المتابعة لإنهاء الأمر.',
+          whatsappText: 'عزيزنا {studentName}، نعتذر عن أي تأخير بخصوص الشكوى #{complaintId}. الأمر يتطلب توريد مواد فنية ويجري العمل عليها بأسرع وقت. شكرًا لصبرك.'
+        },
+        {
+          id: 'delayed_peak_load',
+          title: 'اعتذار بسبب ضغط العمل الموسمي',
+          officialReply: 'نعتذر عن التأخير المؤقت الناتج عن ضغط العمل وفترة الامتحانات/التسجيل. طلبكم يحظى بالأولوية.',
+          whatsappText: 'مرحباً {studentName}، نعتذر عن التأخير المؤقت في معالجة الشكوى #{complaintId} نظراً لضغط العمل. طلبكم بالأولويات وسنرد عليكم قريباً.'
+        }
+      ]
+    },
+    resolved: {
+      id: 'resolved',
+      nameAr: 'الانتهاء وإغلاق الشكوى',
+      templates: [
+        {
+          id: 'resolved_success',
+          title: 'اكتمال المعالجة بنجاح',
+          officialReply: 'يسرنا إعلامكم بانتهاء معالجة المشكلة المذكورة بنجاح. نشكر حرصكم وتعاونكم.',
+          whatsappText: 'بشرى سارة {studentName} ✨ تم بنجاح حل ومعالجة شكواكم رقم #{complaintId} المتعلقة بـ ({title}). ندعوكم لتقييم التجربة عبر الرابط: {appUrl}/#track/{complaintId}'
+        },
+        {
+          id: 'resolved_alternative',
+          title: 'تقديم حل بديل أو توضيح إجرائي',
+          officialReply: 'تم توفير حل بديل وفق الأنظمة والتعليمات المعمول بها في الجامعة، وتم إغلاق الشكوى.',
+          whatsappText: 'طالبنا العزيز {studentName}، تم توفير حل بديل ملائم بخصوص الشكوى #{complaintId} وفق أنظمة الجامعة. للاطلاع: {appUrl}/#track/{complaintId}'
+        }
+      ]
+    }
+  };
+
+  // --- Canned Replies UI Handlers ---
+  async function setupCannedRepliesUI(complaint) {
+    if (!cannedRepliesCatalog) {
+      cannedRepliesCatalog = DEFAULT_CANNED_CATALOG;
+      try {
+        const remote = await repo.getCannedRepliesAsync();
+        if (remote) cannedRepliesCatalog = remote;
+      } catch (err) {
+        console.warn('Could not fetch canned replies from server, using built-in catalog:', err.message);
+      }
+    }
+    renderCannedCategory(activeCannedCategory, complaint);
+  }
+
+  function interpolateVariables(templateText, complaint) {
+    if (!templateText || !complaint) return templateText || '';
+    const serviceObj = config.services.find(s => s.id === complaint.service) || { name: complaint.serviceName || complaint.service || 'الخدمة المختصة' };
+    const origin = window.location.origin;
+    return templateText
+      .replace(/\{studentName\}/g, complaint.fullName || complaint.full_name || 'طالبنا العزيز')
+      .replace(/\{complaintId\}/g, complaint.id || '')
+      .replace(/\{title\}/g, complaint.title || '')
+      .replace(/\{service\}/g, serviceObj.name || '')
+      .replace(/\{location\}/g, complaint.location || '')
+      .replace(/\{appUrl\}/g, origin);
+  }
+
+  function renderCannedCategory(catKey, complaint) {
+    activeCannedCategory = catKey;
+    selectedCannedTemplate = null;
+
+    // Highlight category tab
+    document.querySelectorAll('.canned-cat-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.cat === catKey);
+    });
+
+    const listEl = $('canned-templates-list');
+    if (!listEl) return;
+    listEl.innerHTML = '';
+
+    const category = cannedRepliesCatalog ? cannedRepliesCatalog[catKey] : null;
+    if (!category || !category.templates || category.templates.length === 0) {
+      listEl.innerHTML = '<span style="font-size:12px; color:var(--muted); padding:4px 0;">لا توجد قوالب متاحة في هذه الفئة.</span>';
+      return;
+    }
+
+    category.templates.forEach((tmpl, idx) => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'canned-chip' + (idx === 0 ? ' active' : '');
+      chip.textContent = tmpl.title;
+      chip.title = tmpl.description || tmpl.title;
+      chip.addEventListener('click', () => {
+        listEl.querySelectorAll('.canned-chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        selectedCannedTemplate = tmpl;
+      });
+      listEl.appendChild(chip);
+
+      if (idx === 0) {
+        selectedCannedTemplate = tmpl;
+      }
+    });
   }
 
   function renderTimeline(logs) {
@@ -442,16 +617,80 @@
       });
     }
 
-    // 9. Canned Reply Chips in Inspector
-    document.querySelectorAll('.canned-chip').forEach(chip => {
-      chip.addEventListener('click', () => {
-        const replyTextarea = $('inspect-reply-textarea');
-        if (replyTextarea) {
-          replyTextarea.value = chip.dataset.reply || chip.textContent;
-          replyTextarea.focus();
+    // 9. Canned Reply Category Tabs & Quick Action Buttons
+    document.querySelectorAll('.canned-cat-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const catKey = btn.dataset.cat;
+        if (catKey && selectedComplaint) {
+          renderCannedCategory(catKey, selectedComplaint);
         }
       });
     });
+
+    const insertBtn = $('canned-insert-reply-btn');
+    if (insertBtn) {
+      insertBtn.addEventListener('click', () => {
+        if (!selectedCannedTemplate) {
+          toast('اختر قالباً أولاً.');
+          return;
+        }
+        const replyBox = $('inspect-reply-textarea');
+        if (replyBox) {
+          replyBox.value = interpolateVariables(selectedCannedTemplate.officialReply, selectedComplaint);
+          replyBox.focus();
+          toast(`تم إدراج قالب "${selectedCannedTemplate.title}" في الرد الرسمي.`);
+        }
+      });
+    }
+
+    const waSendBtn = $('canned-open-whatsapp-btn');
+    if (waSendBtn) {
+      waSendBtn.addEventListener('click', () => {
+        if (!selectedComplaint) return;
+        const phoneFull = selectedComplaint.phone_full || selectedComplaint.phoneFull;
+        if (!phoneFull) {
+          toast('⚠️ تنبيه: الطالب لم يسجل رقم هاتف/واتساب للتواصل في هذه الشكوى.');
+          return;
+        }
+        let rawText = selectedCannedTemplate ? selectedCannedTemplate.whatsappText : '';
+        if (!rawText) {
+          rawText = `مرحباً {studentName}، بخصوص شكواك رقم #{complaintId}: نود إعلامك بتحديث الحالة عبر بوابة الشكاوى الرسمية.`;
+        }
+        const text = interpolateVariables(rawText, selectedComplaint);
+        const waUrl = `https://wa.me/${phoneFull}?text=${encodeURIComponent(text)}`;
+        window.open(waUrl, '_blank', 'noopener,noreferrer');
+        toast('تم فتح محادثة الواتساب بنص القالب الجاهز.');
+      });
+    }
+
+    const emailSendBtn = $('canned-send-email-btn');
+    if (emailSendBtn) {
+      emailSendBtn.addEventListener('click', async () => {
+        if (!selectedComplaint) return;
+        if (!selectedCannedTemplate) {
+          toast('اختر قالباً أولاً للإرسال عبر البريد الإلكتروني.');
+          return;
+        }
+        const prevText = emailSendBtn.innerHTML;
+        try {
+          emailSendBtn.disabled = true;
+          emailSendBtn.innerHTML = '<span data-icon="clock"></span> جاري الإرسال عبر SMTP...';
+          await repo.sendCannedNotificationAsync({
+            complaintId: selectedComplaint.id,
+            channel: 'email',
+            categoryKey: activeCannedCategory,
+            templateId: selectedCannedTemplate.id
+          });
+          toast(`تم إرسال بريد رسمي عبر خادم SMTP إلى ${selectedComplaint.email} بنجاح.`);
+        } catch (err) {
+          toast(`تعذر إرسال البريد: ${err.message}`);
+        } finally {
+          emailSendBtn.disabled = false;
+          emailSendBtn.innerHTML = prevText;
+          if (icons && icons.render) icons.render(emailSendBtn);
+        }
+      });
+    }
 
     // 10. Close Inspector Modal
     const closeInspectorBtn = $('close-inspector-btn');
@@ -518,6 +757,7 @@
         const newStatus = Number($('inspect-status-select').value);
         const newPriority = $('inspect-priority-select').value;
         const officialReply = $('inspect-reply-textarea').value.trim();
+        const sendEmail = $('inspect-send-email-toggle') ? $('inspect-send-email-toggle').checked : false;
 
         try {
           saveChangesBtn.disabled = true;
@@ -526,7 +766,8 @@
           await repo.updateComplaintStatusAsync(selectedComplaint.id, {
             status: newStatus,
             priority: newPriority,
-            officialReply
+            officialReply,
+            sendEmail
           });
 
           toast(`تم تحديث الشكوى (${selectedComplaint.id}) وحفظ الرد بنجاح.`);

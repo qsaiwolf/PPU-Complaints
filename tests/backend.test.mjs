@@ -216,17 +216,155 @@ test('Admin can export complaints to CSV with UTF-8 BOM', async () => {
   assert.equal(buffer[2], 0xBF);
   const text = buffer.toString('utf8');
   assert.ok(text.includes('رقم الشكوى'));
+  assert.ok(text.includes('رقم الواتساب الدولي'));
   assert.ok(text.includes(createdComplaintId));
 });
 
+let phoneComplaintId;
+
+test('Student can submit complaint with Palestinian phone (ps +970) for WhatsApp notifications', async () => {
+  const payload = {
+    fullName: 'يوسف خليل الجعبري',
+    major: 'تكنولوجيا المعلومات',
+    studentId: '202410888',
+    email: 'yousef.j@ppu.edu.ps',
+    phoneCountry: 'ps',
+    phone: '0599112233',
+    service: 'library',
+    location: 'مبنى المكتبة المركزية',
+    title: 'طلب توفير مصادر ومراجع حاسوبية إضافية',
+    description: 'نرجو توفير مراجع حديثة لمادة الذكاء الاصطناعي في قسم الدوريات.'
+  };
+
+  const res = await fetch(`${baseUrl}/api/v1/complaints`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+
+  assert.equal(res.status, 201);
+  const json = await res.json();
+  assert.equal(json.success, true);
+  assert.equal(json.data.phoneCountry, 'ps');
+  assert.equal(json.data.phone, '599112233');
+  assert.equal(json.data.phoneFull, '970599112233');
+  phoneComplaintId = json.data.id;
+});
+
+test('Student submission rejects unsupported country prefix', async () => {
+  const payload = {
+    fullName: 'سامي الأحمد',
+    major: 'الهندسة',
+    email: 'sami@ppu.edu.ps',
+    phoneCountry: 'us',
+    phone: '1234567890',
+    service: 'internet',
+    location: 'مبنى B',
+    title: 'انقطاع الشبكة',
+    description: 'تفاصيل المشكلة'
+  };
+
+  const res = await fetch(`${baseUrl}/api/v1/complaints`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+
+  assert.equal(res.status, 400);
+  const json = await res.json();
+  assert.equal(json.success, false);
+  assert.ok(json.message.includes('غير مدعوم'));
+});
+
+test('Tracking endpoint returns WhatsApp link and formatted phone for student', async () => {
+  const res = await fetch(`${baseUrl}/api/v1/complaints/${phoneComplaintId}`);
+  assert.equal(res.status, 200);
+  const json = await res.json();
+  assert.equal(json.success, true);
+  assert.equal(json.data.phoneCountry, 'ps');
+  assert.equal(json.data.phoneFull, '970599112233');
+  assert.ok(json.data.waLink.includes('wa.me/970599112233'));
+});
+
+test('Admin can fetch canned replies catalog across 4 categories', async () => {
+  const res = await fetch(`${baseUrl}/api/v1/admin/canned-replies`, {
+    headers: { 'Authorization': `Bearer ${adminToken}` }
+  });
+
+  assert.equal(res.status, 200);
+  const json = await res.json();
+  assert.equal(json.success, true);
+  assert.ok(json.data.categories.follow_up);
+  assert.ok(json.data.categories.summon);
+  assert.ok(json.data.categories.delayed);
+  assert.ok(json.data.categories.resolved);
+  assert.ok(Array.isArray(json.data.replies));
+  assert.ok(json.data.replies.length >= 6);
+});
+
+test('Admin can generate WhatsApp canned dispatch for student', async () => {
+  const res = await fetch(`${baseUrl}/api/v1/admin/canned-replies/send`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${adminToken}`
+    },
+    body: JSON.stringify({
+      complaintId: phoneComplaintId,
+      cannedId: 'summon_deanship_office',
+      channel: 'whatsapp'
+    })
+  });
+
+  assert.equal(res.status, 200);
+  const json = await res.json();
+  assert.equal(json.success, true);
+  assert.ok(json.data.waLink.includes('wa.me/970599112233'));
+  assert.ok(json.data.messageText.includes(phoneComplaintId));
+});
+
+test('Admin can send canned email notification via SMTP service', async () => {
+  const res = await fetch(`${baseUrl}/api/v1/admin/canned-replies/send`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${adminToken}`
+    },
+    body: JSON.stringify({
+      complaintId: phoneComplaintId,
+      cannedId: 'follow_up_general',
+      channel: 'email'
+    })
+  });
+
+  assert.equal(res.status, 200);
+  const json = await res.json();
+  assert.equal(json.success, true);
+  assert.equal(json.data.email, 'yousef.j@ppu.edu.ps');
+});
+
+test('Admin can check SMTP server status', async () => {
+  const res = await fetch(`${baseUrl}/api/v1/admin/smtp/status`, {
+    headers: { 'Authorization': `Bearer ${adminToken}` }
+  });
+
+  assert.equal(res.status, 200);
+  const json = await res.json();
+  assert.equal(json.success, true);
+  assert.ok('enabled' in json.data);
+  assert.ok('connected' in json.data);
+});
+
 test('Database cleanup: removes temporary test complaint from database', async () => {
-  if (createdComplaintId) {
-    const adapter = await getDatabaseAdapter();
-    if (adapter.engineName === 'sqlite' && adapter.db) {
-      adapter.db.prepare('DELETE FROM ratings WHERE complaint_id = ?').run(createdComplaintId);
-      adapter.db.prepare('DELETE FROM internal_notes WHERE complaint_id = ?').run(createdComplaintId);
-      adapter.db.prepare('DELETE FROM complaint_logs WHERE complaint_id = ?').run(createdComplaintId);
-      adapter.db.prepare('DELETE FROM complaints WHERE id = ?').run(createdComplaintId);
+  const adapter = await getDatabaseAdapter();
+  if (adapter.engineName === 'sqlite' && adapter.db) {
+    const ids = [createdComplaintId, phoneComplaintId].filter(Boolean);
+    for (const id of ids) {
+      adapter.db.prepare('DELETE FROM ratings WHERE complaint_id = ?').run(id);
+      adapter.db.prepare('DELETE FROM internal_notes WHERE complaint_id = ?').run(id);
+      adapter.db.prepare('DELETE FROM complaint_logs WHERE complaint_id = ?').run(id);
+      adapter.db.prepare('DELETE FROM complaints WHERE id = ?').run(id);
     }
   }
 });
+
