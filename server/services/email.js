@@ -9,17 +9,18 @@ class NotificationService {
 
     const message = `
 ================================================================================
-📧 [إشعار بريد إلكتروني صادر للطالب]
+[OUTGOING EMAIL NOTIFICATION] (Simulation)
 --------------------------------------------------------------------------------
-إلى: ${fullName} <${email}>
-الموضوع: تأكيد استلام شكوى رقم: ${complaintId} — جامعة بوليتكنك فلسطين
-المحتوى:
-مرحبًا ${fullName}،
-تم استلام شكواك بنجاح في قسم (${serviceName}).
-- رقم المتابعة الخاص بك: ${complaintId}
-- عنوان الشكوى: ${title}
-يمكنك في أي وقت تتبع حالة الشكوى والرد عبر بوابة المتابعة باستخدام رقم الشكوى أعلاه.
-مع تحيات، وحدة الشكاوى والدعم الفني — جامعة بوليتكنك فلسطين
+To     : ${fullName} <${email}>
+Subject: Complaint Confirmation #${complaintId} - PPU Complaints System
+Body   :
+Dear ${fullName},
+Your complaint has been successfully registered under department: ${serviceName}.
+- Tracking ID : ${complaintId}
+- Subject     : ${title}
+You can track updates and official replies anytime via the tracking portal using your ID.
+Regards,
+Complaints & Student Support Unit - Palestine Polytechnic University
 ================================================================================
     `.trim();
 
@@ -31,18 +32,19 @@ class NotificationService {
 
     const message = `
 ================================================================================
-📧 [إشعار بريد إلكتروني صادر للطالب]
+[OUTGOING EMAIL NOTIFICATION] (Simulation)
 --------------------------------------------------------------------------------
-إلى: ${fullName} <${email}>
-الموضوع: تم حل شكواك رقم: ${complaintId} — جامعة بوليتكنك فلسطين
-المحتوى:
-مرحبًا ${fullName}،
-يسعدنا إعلامك بأنه تم حل الشكوى الخاصة بك بنجاح.
-- الرد الرسمي للجامعة:
+To     : ${fullName} <${email}>
+Subject: Complaint Resolved #${complaintId} - PPU Complaints System
+Body   :
+Dear ${fullName},
+Your complaint has been successfully resolved.
+Official Resolution Reply:
 "${officialReply}"
 
-يرجى التوجه إلى صفحة المتابعة لتقييم جودة الخدمة لمساعدتنا في تحسين التجربة الجامعية.
-مع تحيات، إدارة الجامعة — جامعة بوليتكنك فلسطين
+Please visit the tracking portal to rate our service quality and help us improve.
+Regards,
+University Administration - Palestine Polytechnic University
 ================================================================================
     `.trim();
 

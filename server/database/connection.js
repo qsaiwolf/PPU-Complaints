@@ -16,22 +16,22 @@ export async function getDatabaseAdapter() {
 
   if (requestedEngine === 'mysql') {
     try {
-      console.log('🔄 جاري محاولة الاتصال بقاعدة بيانات MySQL...');
+      console.log('[INFO] Connecting to MySQL database...');
       await mysqlAdapter.init();
       activeAdapter = mysqlAdapter;
-      console.log('✅ تم الاتصال بنجاح بقاعدة بيانات MySQL');
+      console.log('[SUCCESS] Connected to MySQL database.');
     } catch (error) {
-      console.warn(`⚠️ تعذر الاتصال بـ MySQL (${error.message})`);
-      console.warn('🔄 التحويل التلقائي الذكي (Auto-Failover) إلى قاعدة بيانات SQLite المحلية...');
+      console.warn(`[WARN] MySQL connection failed (${error.message})`);
+      console.warn('[WARN] Auto-failover: Falling back to local embedded SQLite database...');
       await sqliteAdapter.init();
       activeAdapter = sqliteAdapter;
-      console.log('✅ تم تفعيل محرك SQLite المحلي بنجاح (./data/ppu_complaints.db)');
+      console.log(`[SUCCESS] SQLite storage engine active: ${config.sqlitePath}`);
     }
   } else {
     // Default: SQLite local engine
     await sqliteAdapter.init();
     activeAdapter = sqliteAdapter;
-    console.log('✅ تم تفعيل محرك SQLite المحلي بنجاح (./data/ppu_complaints.db)');
+    console.log(`[SUCCESS] SQLite storage engine active: ${config.sqlitePath}`);
   }
 
   // Auto-seed default Super Admin if none exists
@@ -52,10 +52,10 @@ async function seedDefaultAdmin(adapter) {
         passwordHash,
         role: 'super_admin'
       });
-      console.log(`👤 تم تهيئة حساب المشرف الافتراضي تلقائياً: [${config.defaultAdmin.email}]`);
+      console.log(`[INFO] Default super admin seeded successfully: [${config.defaultAdmin.email}]`);
     }
   } catch (err) {
-    console.error('Failed to seed default admin:', err.message);
+    console.error('[ERROR] Failed to seed default admin:', err.message);
   }
 }
 

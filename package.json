@@ -7,8 +7,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "pterodactyl": "node index.js",
-    "server": "node server.mjs",
+    "dev": "node index.js",
     "test": "node --test tests/logic.test.cjs tests/backend.test.mjs",
     "test:unit": "node --test tests/logic.test.cjs",
     "test:backend": "node --test tests/backend.test.mjs"
