@@ -9,11 +9,13 @@
     <script src="js/theme-init.js"></script>
     <link rel="icon" href="assets/images/ppu-logo.png" type="image/png">
     <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/admin.css">
     <script src="assets/icons/icons.js" defer></script>
     <script src="js/config.js" defer></script>
     <script src="js/storage.js" defer></script>
     <script src="js/assistant.js" defer></script>
     <script src="js/app.js" defer></script>
+    <script src="js/admin.js" defer></script>
   </head>
   <body>
     <a class="skip-link" href="#main-content">انتقل إلى المحتوى</a>
@@ -32,8 +34,6 @@
           </span>
         </a>
         <div class="header-actions">
-          <span class="demo-tag">
-            <span></span>نسخة تجريبية</span>
           <button id="theme-toggle" class="icon-button theme-toggle" type="button" aria-label="تفعيل الوضع الليلي" title="تفعيل الوضع الليلي">
             <span data-icon="moon"></span>
           </button>
@@ -50,9 +50,8 @@
             <a href="#submit" data-route="submit">تقديم شكوى</a>
             <a href="#track" data-route="track">متابعة الشكوى</a>
             <a href="#help" data-route="help">المساعدة</a>
+            <a href="#admin" data-route="admin" id="nav-admin-link">بوابة المشرفين</a>
           </div>
-          <span class="student-label">
-            <span data-icon="user"></span>بوابة الطالب</span>
         </nav>
       </div>
     </header>
@@ -332,8 +331,8 @@
         <section id="submission-success" class="success-card" aria-labelledby="success-title" hidden>
           <div class="success-check" data-icon="check"></div>
           <span class="eyebrow">تمّت الخطوة الأولى</span>
-          <h2 id="success-title">تم حفظ شكواك التجريبية!</h2>
-          <p>احتفظ بهذا الرقم لمتابعتها في هذا المتصفح.</p>
+          <h2 id="success-title">تم تقديم الشكوى بنجاح!</h2>
+          <p>احتفظ بهذا الرقم لمتابعة مسار معالجة الشكوى واستلام الرد الرسمي.</p>
           <div class="complaint-number">
             <strong id="success-number" dir="ltr">
             </strong>
@@ -343,7 +342,7 @@
           </div>
           <span class="status-badge status-0">
             <span data-icon="send"></span>تم الإرسال</span>
-          <p class="success-disclaimer">حُفظت محليًا فقط، ولم تُرسل إلى الجامعة. لا يوجد رد من جهة مختصة.</p>
+          <p class="success-disclaimer">سُجلت شكواك رسميًا في النظام وأُحيلت إلى الدائرة الجامعية المختصة لمتابعتها.</p>
           <div class="success-actions">
             <a id="success-track" href="#track" class="button primary">متابعة شكواي <span data-icon="arrow"></span>
             </a>
@@ -358,16 +357,16 @@
             <span class="eyebrow">كل خطوة، بوضوح</span>
             <h1 id="track-title">
               <span data-icon="search"></span>متابعة الشكوى</h1>
-            <p>أدخل رقم شكواك للاطّلاع على تفاصيلها وحالتها.</p>
+            <p>أدخل رقم شكواك الجامعي للاطّلاع على تفاصيلها وحالتها المحدثة.</p>
           </div>
         </div>
         <div class="tracking-layout">
           <div class="tracking-main">
             <form id="tracking-form" class="tracking-search form-card" novalidate>
-              <label for="tracking-number">رقم الشكوى</label>
+              <label for="tracking-number">رقم الشكوى الجامعي</label>
               <div class="tracking-input-row">
                 <div class="input-icon">
-                  <input id="tracking-number" placeholder="مثل: DEMO-1003" dir="ltr" autocomplete="off" maxlength="60" aria-describedby="tracking-error">
+                  <input id="tracking-number" placeholder="أدخل رقم الشكوى (مثل: PPU-2026-XXXX)" dir="ltr" autocomplete="off" maxlength="60" aria-describedby="tracking-error">
                   <span data-icon="file"></span>
                 </div>
                 <button type="submit" class="button primary">
@@ -377,15 +376,14 @@
             </form>
             <div id="tracking-empty" class="empty-state">
               <div class="empty-icon" data-icon="search"></div>
-              <h2>كل شكوى لها مسار</h2>
-              <p>ابحث برقم الشكوى لتظهر التفاصيل هنا،<br>أو جرّب أحد الأمثلة الجانبية.</p>
+              <h2>متابعة الشكاوى الرسمية</h2>
+              <p>أدخل رقم الشكوى لتظهر تفاصيلها ومراحل تقدمها والردود الصادرة عنها.</p>
               <span class="quiet-note">
-                <span data-icon="lock"></span>البحث في بيانات هذا المتصفح فقط</span>
+                <span data-icon="shield"></span>استعلام آمن متصل بقاعدة بيانات الجامعة المركزية</span>
             </div>
             <article id="tracking-result" class="tracking-result form-card" aria-labelledby="result-title" hidden>
               <div class="result-top">
                 <span id="result-number" class="result-number" dir="ltr"></span>
-                <span id="result-demo" class="demo-tag">بيانات تجريبية</span>
                 <span id="result-status" class="status-badge"></span>
               </div>
               <h2 id="result-title">
@@ -476,14 +474,17 @@
           </div>
           <aside class="tracking-sidebar">
             <div class="examples-card">
-              <span class="eyebrow">جرّب بنفسك</span>
-              <h2>أمثلة للتجربة</h2>
-              <p>بيانات وهمية توضّح مراحل المتابعة.<br>لا تمثّل شكاوى أو ردودًا حقيقية.</p>
-              <div id="demo-examples" class="demo-examples"></div>
+              <span class="eyebrow">إرشادات رسمية</span>
+              <h2>تعليمات المتابعة</h2>
+              <ul class="tracking-guidelines" style="list-style: none; padding: 0; margin: 12px 0 0; display: flex; flex-direction: column; gap: 10px; font-size: 13px; line-height: 1.6;">
+                <li><strong>رقم الشكوى:</strong> يتكون من البادئة <span dir="ltr" style="font-weight:700; color:var(--teal);">PPU-2026-XXXX</span> التي استلمتها عند تأكيد التقديم.</li>
+                <li><strong>إشعارات التحديث:</strong> يتم إشعارك فور تغيير الحالة من «تم الإرسال» إلى «قيد المعالجة» أو «تم الحل».</li>
+                <li><strong>تقييم الخدمة:</strong> يتاح لك تقييم جودة الخدمة بمجرد اعتماد حل الشكوى رسميًا من الإدارة.</li>
+              </ul>
             </div>
             <div class="sidebar-note">
               <span data-icon="info"></span>
-              <p>الشكاوى الجديدة تبقى في حالة «تم الإرسال». لا تتغيّر الحالات تلقائيًا بمرور الوقت.</p>
+              <p>تتم معالجة كافة البلاغات والشكاوى وفق الأولويات المعتمدة لدى الأقسام والدوائر الجامعية المختصة.</p>
             </div>
           </aside>
         </div>
@@ -519,36 +520,36 @@
             </details>
             <details>
               <summary>كيف أتابع شكواي؟</summary>
-              <p>افتح صفحة «متابعة الشكوى» وأدخل الرقم الذي ظهر بعد الحفظ. يجب استخدام المتصفح نفسه لأن البيانات محفوظة محليًا.</p>
+              <p>افتح صفحة «متابعة الشكوى» وأدخل الرقم الفريد (PPU-2026-XXXX) الذي حصلت عليه عند تقديم الشكوى، ويمكنك المتابعة من أي جهاز أو متصفح في أي وقت.</p>
               <a href="#track" class="text-link">انتقل إلى المتابعة <span data-icon="arrow"></span>
               </a>
             </details>
             <details>
-              <summary>هل تُرسل الشكاوى إلى الجامعة؟</summary>
-              <p>هذه نسخة فرونت إند تعليمية وغير مرتبطة بالجامعة. لا تُرسل الشكاوى أو التقييمات إلى أي جهة، والردود الموجودة في الأمثلة وهمية وموسومة بوضوح.</p>
+              <summary>هل تُرسل الشكاوى إلى جهات الاختصاص في الجامعة؟</summary>
+              <p>نعم، تُسجل جميع الشكاوى فور تأكيدها وتُحفظ في قاعدة البيانات المركزية، وتُحال إلى القسم المعني (الإنترنت، الصيانة، النظافة، المكتبة، إلخ) لمراجعتها ومعالجتها رسميًا.</p>
             </details>
             <details>
               <summary>متى يمكنني تقييم التجربة؟</summary>
-              <p>يظهر التقييم عندما تكون الحالة «تم الحل» فقط. يمكنك تجربة ذلك عبر المثال DEMO-1004. يُسمح بتقييم واحد لكل شكوى في هذا المتصفح، ولا يغيّر التقييم حالتها.</p>
+              <p>يتاح نموذج التقييم فور وصول الشكوى إلى حالة «تم الحل»، لمساعدتنا في قياس جودة المعالجة وسرعة استجابة الفرق المختصة. يُسمح بتقييم واحد لكل شكوى.</p>
             </details>
             <details>
-              <summary>ما الصور المسموح بإرفاقها؟</summary>
-              <p>صورة JPG أو PNG بحد أقصى 5MB. الإرفاق للمعاينة أثناء تعبئة النموذج فقط؛ لا تُرفع الصورة ولا تُحفظ في localStorage.</p>
+              <summary>ما الصور والمرفقات المسموح بإرفاقها؟</summary>
+              <p>يمكنك إرفاق صورة توضيحية للمشكلة بصيغة JPG أو PNG أو WebP بحد أقصى 5 ميجابايت. تُرفع الصورة وتُحفظ بأمان في النظام لتسهيل المعاينة على المشرفين.</p>
             </details>
             <details>
-              <summary>هل المساعد يستخدم ذكاءً اصطناعيًا خارجيًا؟</summary>
-              <p>المساعد يستخدم قواعد JavaScript بسيطة داخل المتصفح، دون API أو مفاتيح سرية. قد يطلب منك توضيح الخدمة أو الموقع، ويمكنك دائمًا تعديل المسودة.</p>
+              <summary>هل المساعد الذكي يتطلب حسابًا خارجيًا؟</summary>
+              <p>لا، المساعد مدمج في النظام ويساعدك مباشرة في استخراج نوع الخدمة وصياغة العنوان والوصف بدقة وتجهيز مسودة قابلة للتعديل قبل التقديم.</p>
             </details>
           </section>
           <aside class="privacy-card">
             <span class="privacy-icon" data-icon="shield"></span>
-            <h2>بياناتك في هذه النسخة</h2>
-            <p>تُحفظ الشكاوى والتقييمات وتفضيلات الألوان في <strong>هذا المتصفح فقط</strong>.</p>
+            <h2>حماية وسرية بياناتك</h2>
+            <p>تلتزم جامعة بوليتكنك فلسطين بأعلى معايير الخصوصية والأمان الأكاديمي:</p>
             <ul>
-              <li>لا يوجد اتصال بباك إند الجامعة.</li>
-              <li>لا تُحفظ الصور أو المحادثات.</li>
-              <li>حذف بيانات الموقع من المتصفح يحذف الشكاوى والتقييمات.</li>
-              <li>قد يمنع المتصفح التخزين في بعض أوضاع الخصوصية، وستظهر رسالة عند تعذّر الحفظ.</li>
+              <li>تُحفظ كافة الشكاوى في خوادم مركزية مشفرة ومحمية.</li>
+              <li>لا يُسمح بالاطلاع على تفاصيل الشكاوى إلا للمشرفين المخولين رسمياً.</li>
+              <li>يتم توثيق كل إجراء أو تغيير في الحالة عبر سجل تدقيق زمني محمي.</li>
+              <li>جلسات دخول المشرفين محمية بتشفير عالي المستوى ورموز JWT الموقعة.</li>
             </ul>
             <div class="privacy-divider"></div>
             <h3>ما الخدمات المتاحة؟</h3>
@@ -556,6 +557,177 @@
             <a href="#home" class="text-link">استعرض الخدمات <span data-icon="arrow"></span>
             </a>
           </aside>
+        </div>
+      </section>
+
+      <!-- صفحة بوابة المشرفين والإدارة -->
+      <section id="page-admin" class="page" aria-labelledby="admin-title" hidden>
+        <!-- 1. نموذج تسجيل الدخول للإدارة -->
+        <div id="admin-login-view" class="admin-login-wrapper">
+          <div class="admin-login-card reveal">
+            <div class="admin-login-header">
+              <div class="admin-login-icon">
+                <span data-icon="shield"></span>
+              </div>
+              <h2 id="admin-title">بوابة مشرفي الجامعة</h2>
+              <p>سجّل دخولك لمتابعة شكاوى الطلاب وإدارتها رسميًا</p>
+            </div>
+            <form id="admin-login-form" novalidate>
+              <div class="field-group">
+                <label for="admin-email-input">البريد الإلكتروني الجامعي</label>
+                <div class="input-wrapper">
+                  <span class="input-icon" data-icon="mail"></span>
+                  <input id="admin-email-input" type="email" placeholder="admin@ppu.edu.ps" required autocomplete="username" dir="ltr">
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="admin-password-input">كلمة المرور</label>
+                <div class="input-wrapper">
+                  <span class="input-icon" data-icon="lock"></span>
+                  <input id="admin-password-input" type="password" placeholder="••••••••••••" required autocomplete="current-password" dir="ltr">
+                </div>
+              </div>
+              <p id="admin-login-error" class="field-error" role="alert"></p>
+              <button class="button primary full-width" type="submit" style="margin-top: 16px;">
+                <span data-icon="check"></span>
+                تسجيل الدخول إلى النظام
+              </button>
+            </form>
+            <div class="admin-security-note" style="margin-top: 24px; display: flex; align-items: center; gap: 10px; padding: 12px 16px; background: var(--surface-soft); border: 1px solid var(--border); border-radius: 12px; font-size: 13px; color: var(--muted);">
+              <span data-icon="shield"></span>
+              <span>منطقة وصول آمنة مخصصة لمشرفي وموظفي جامعة بوليتكنك فلسطين المصرح لهم فقط.</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. لوحة تحكم المشرف -->
+        <div id="admin-dashboard-view" class="admin-container" hidden>
+          <!-- الشريط العلوي للمشرف -->
+          <div class="admin-top-bar">
+            <div class="admin-user-info">
+              <div class="admin-avatar">
+                <span data-icon="user"></span>
+              </div>
+              <div class="admin-meta">
+                <h3 id="admin-display-name">مشرف النظام</h3>
+                <div class="admin-badges">
+                  <span id="admin-display-role" class="badge-role">مدير عام النظام</span>
+                  <span id="admin-display-email" class="badge-email" dir="ltr">admin@ppu.edu.ps</span>
+                </div>
+              </div>
+            </div>
+            <div class="admin-top-actions">
+              <button id="admin-refresh-btn" class="button outline" type="button" title="تحديث البيانات">
+                <span data-icon="refresh"></span>
+                تحديث
+              </button>
+              <button id="admin-export-btn" class="button outline" type="button" title="تصدير تقرير Excel">
+                <span data-icon="download"></span>
+                تصدير Excel / CSV
+              </button>
+              <button id="admin-logout-btn" class="button outline" type="button" title="تسجيل الخروج">
+                <span data-icon="close"></span>
+                خروج
+              </button>
+            </div>
+          </div>
+
+          <!-- بطاقات المؤشرات الإحصائية -->
+          <div class="admin-stats-grid">
+            <div class="stat-card">
+              <div class="stat-icon total"><span data-icon="file"></span></div>
+              <div class="stat-info">
+                <span class="stat-label">إجمالي الشكاوى</span>
+                <span id="stat-total" class="stat-value">0</span>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon pending"><span data-icon="clock"></span></div>
+              <div class="stat-info">
+                <span class="stat-label">بانتظار المراجعة</span>
+                <span id="stat-pending" class="stat-value">0</span>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon processing"><span data-icon="gear"></span></div>
+              <div class="stat-info">
+                <span class="stat-label">قيد المعالجة</span>
+                <span id="stat-processing" class="stat-value">0</span>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon resolved"><span data-icon="check"></span></div>
+              <div class="stat-info">
+                <span class="stat-label">تم الحل بنجاح</span>
+                <span id="stat-resolved" class="stat-value">0</span>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon rating"><span data-icon="star"></span></div>
+              <div class="stat-info">
+                <span class="stat-label">معدل الرضا</span>
+                <span id="stat-rating" class="stat-value">—</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- شريط الفلاتر والبحث -->
+          <div class="admin-filters-card">
+            <div class="search-box">
+              <span class="search-icon"><span data-icon="search"></span></span>
+              <input id="admin-search-input" type="search" placeholder="ابحث برقم الشكوى، اسم الطالب، أو الموقع...">
+            </div>
+            <select id="filter-service" class="filter-select" aria-label="تصفية حسب نوع الخدمة">
+              <option value="all">كل الخدمات</option>
+              <option value="internet">الإنترنت</option>
+              <option value="classrooms">القاعات والمقاعد</option>
+              <option value="cleanliness">النظافة</option>
+              <option value="facilities">المرافق</option>
+              <option value="library">المكتبة</option>
+              <option value="other">خدمات أخرى</option>
+            </select>
+            <select id="filter-status" class="filter-select" aria-label="تصفية حسب الحالة">
+              <option value="all">كل الحالات</option>
+              <option value="0">تم الإرسال</option>
+              <option value="1">قيد المراجعة</option>
+              <option value="2">قيد المعالجة</option>
+              <option value="3">تم الحل</option>
+            </select>
+            <select id="filter-priority" class="filter-select" aria-label="تصفية حسب الأولوية">
+              <option value="all">كل الأولويات</option>
+              <option value="urgent">عاجل جدًا</option>
+              <option value="high">أولوية عالية</option>
+              <option value="medium">أولوية عادية</option>
+              <option value="low">أولوية منخفضة</option>
+            </select>
+          </div>
+
+          <!-- جدول بيانات الشكاوى -->
+          <div class="admin-table-card">
+            <div class="table-responsive">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>رقم الشكوى</th>
+                    <th>الطالب والتخصص</th>
+                    <th>الخدمة</th>
+                    <th>الموقع</th>
+                    <th>الأولوية</th>
+                    <th>الحالة</th>
+                    <th>التاريخ</th>
+                    <th>إجراء</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-complaints-tbody">
+                  <!-- يُملأ ديناميكيًا -->
+                </tbody>
+              </table>
+            </div>
+            <div id="admin-table-empty" class="admin-empty-state" hidden>
+              <span data-icon="search"></span>
+              <p>لم يتم العثور على أي شكاوى مطابقة لمعايير البحث.</p>
+            </div>
+          </div>
         </div>
       </section>
     </main>
@@ -569,16 +741,18 @@
             <small>معًا، لجامعة أفضل</small>
           </span>
         </a>
-        <p>مشروع طلابي تجريبي · جامعة بوليتكنك فلسطين</p>
+        <p>جامعة بوليتكنك فلسطين — نظام الشكاوى الموحد © 2026</p>
         <div class="footer-links">
           <a href="#help/privacy">الخصوصية والبيانات</a>
           <span></span>
           <a href="#help">المساعدة</a>
+          <span></span>
+          <a href="#admin">بوابة المشرفين</a>
         </div>
       </div>
     </footer>
 
-    <button id="assistant-launcher" class="assistant-launcher" type="button" aria-label="فتح مساعد الشكاوى التجريبي" aria-haspopup="dialog" aria-controls="assistant-panel" aria-expanded="false">
+    <button id="assistant-launcher" class="assistant-launcher" type="button" aria-label="فتح المساعد الذكي للشكاوى" aria-haspopup="dialog" aria-controls="assistant-panel" aria-expanded="false">
       <span data-icon="chat"></span>
       <span class="launcher-text">مساعد الشكاوى</span>
       <span class="launcher-dot"></span>
@@ -587,9 +761,9 @@
       <div class="assistant-header">
         <span class="assistant-avatar" data-icon="chat"></span>
         <div>
-          <h2 id="assistant-title">مساعد الشكاوى</h2>
+          <h2 id="assistant-title">المساعد الذكي</h2>
           <p>
-            <span></span>مساعد تجريبي · يعمل محليًا</p>
+            <span></span>صياغة وتوجيه الشكاوى</p>
         </div>
         <button id="assistant-close" type="button" class="icon-button" aria-label="إغلاق المساعد">
           <span data-icon="close"></span>
@@ -617,13 +791,13 @@
       <div class="dialog-heading">
         <div>
           <span class="eyebrow">لحظة للمراجعة</span>
-          <h2 id="review-title">راجع شكواك قبل الحفظ</h2>
+          <h2 id="review-title">راجع شكواك قبل الإرسال</h2>
         </div>
         <button id="close-review" class="icon-button" type="button" aria-label="إغلاق ملخص المراجعة">
           <span data-icon="close"></span>
         </button>
       </div>
-      <p class="review-intro">تأكّد من المعلومات. هذه شكوى تجريبية تُحفظ في متصفحك فقط.</p>
+      <p class="review-intro">تأكّد من صحة البيانات قبل التأكيد النهائي؛ سيتم تسجيل الشكوى وإحالتها للجهة المختصة فورًا.</p>
       <div class="review-group">
         <div class="review-group-heading">
           <h3>بيانات الطالب</h3>
@@ -642,11 +816,129 @@
         <dl id="review-details">
         </dl>
       </div>
-      <p id="review-image-note" class="field-hint" hidden>الصورة للمعاينة فقط ولن تُحفظ مع الشكوى.</p>
+      <p id="review-image-note" class="field-hint" hidden>تم إرفاق صورة توضيحية وسيتم رفعها مع الشكوى.</p>
       <p id="save-error" class="field-error" role="alert">
       </p>
-      <button id="confirm-submit" class="button primary full-width" type="button">تأكيد وحفظ الشكوى <span data-icon="send"></span>
+      <button id="confirm-submit" class="button primary full-width" type="button">تأكيد وإرسال الشكوى <span data-icon="send"></span>
       </button>
+    </dialog>
+
+    <!-- نافذة معاينة وإدارة الشكوى للمشرف -->
+    <dialog id="admin-inspector-modal" class="inspector-dialog" aria-labelledby="inspect-dialog-title">
+      <div class="inspector-card">
+        <div class="inspector-header">
+          <h2 id="inspect-dialog-title">
+            <span data-icon="file"></span>
+            معاينة وإدارة الشكوى: <span id="inspect-id-display" class="id-badge"></span>
+          </h2>
+          <button id="close-inspector-btn" class="icon-button" type="button" aria-label="إغلاق النافذة">
+            <span data-icon="close"></span>
+          </button>
+        </div>
+
+        <div class="inspector-body">
+          <!-- بيانات الطالب والموقع -->
+          <div class="info-grid">
+            <div class="info-item">
+              <label>اسم الطالب:</label>
+              <span id="inspect-student-name"></span>
+            </div>
+            <div class="info-item">
+              <label>البريد الإلكتروني:</label>
+              <span id="inspect-student-email" dir="ltr"></span>
+            </div>
+            <div class="info-item">
+              <label>التخصص الأكاديمي:</label>
+              <span id="inspect-student-major"></span>
+            </div>
+            <div class="info-item">
+              <label>الموقع الدقيق:</label>
+              <span id="inspect-location"></span>
+            </div>
+          </div>
+
+          <!-- تفاصيل الشكوى -->
+          <div class="complaint-text-box">
+            <h4 id="inspect-title"></h4>
+            <p id="inspect-description"></p>
+            <div id="inspect-attachment-container" class="attachment-preview" hidden>
+              <label style="display:block; font-size:12px; color:var(--muted); margin-bottom:4px;">الصورة المرفقة من الطالب:</label>
+              <img id="inspect-attachment-img" src="" alt="مرفق الشكوى">
+            </div>
+          </div>
+
+          <!-- نموذج تحديث الحالة والرد -->
+          <div class="action-section">
+            <h3>اتخاذ الإجراء وتحديث الحالة</h3>
+            <div class="action-grid">
+              <div class="action-field">
+                <label for="inspect-status-select">حالة الشكوى:</label>
+                <select id="inspect-status-select">
+                  <option value="0">تم الإرسال (بانتظار المراجعة)</option>
+                  <option value="1">قيد المراجعة</option>
+                  <option value="2">قيد المعالجة (جاري العمل عليها)</option>
+                  <option value="3">تم الحل بنجاح</option>
+                </select>
+              </div>
+              <div class="action-field">
+                <label for="inspect-priority-select">مستوى الأولوية:</label>
+                <select id="inspect-priority-select">
+                  <option value="low">منخفضة</option>
+                  <option value="medium">عادية</option>
+                  <option value="high">عالية</option>
+                  <option value="urgent">عاجل جدًا</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- الردود الجاهزة السريعة -->
+            <label style="display:block; font-size:12px; color:var(--muted); margin-bottom:6px;">ردود نموذجية جاهزة (اضغط للإدراج):</label>
+            <div class="canned-chips">
+              <button type="button" class="canned-chip" data-reply="تم توجيه فريق الصيانة للموقع المذكور وسيتم إنهاء العطل اليوم.">فريق الصيانة للموقع</button>
+              <button type="button" class="canned-chip" data-reply="تم فحص الشبكة واستبدال الأجهزة التالفة واختبار الاتصال بنجاح.">صيانة الشبكة والإنترنت</button>
+              <button type="button" class="canned-chip" data-reply="اكتملت أعمال النظافة والتعقيم في الموقع المحدد.">اكتمال أعمال النظافة</button>
+              <button type="button" class="canned-chip" data-reply="تمت صيانة المقاعد وتأهيل القاعة لتكون جاهزة للمحاضرات.">صيانة القاعات والمقاعد</button>
+            </div>
+
+            <div class="action-field">
+              <label for="inspect-reply-textarea">الرد الرسمي للجامعة (سيظهر للطالب عند المتابعة):</label>
+              <textarea id="inspect-reply-textarea" rows="3" placeholder="اكتب رد إدارة الجامعة الرسمي هنا..."></textarea>
+            </div>
+          </div>
+
+          <!-- تبويبات التايملاين والملاحظات الداخلية -->
+          <div>
+            <div class="details-tabs">
+              <button id="tab-timeline-btn" class="tab-btn active" type="button">سجل التتبع والتدقيق (Timeline)</button>
+              <button id="tab-notes-btn" class="tab-btn" type="button">ملاحظات الموظفين الداخلية</button>
+            </div>
+            
+            <div id="content-timeline" class="tab-content active">
+              <ul id="inspect-timeline-list" class="timeline-list">
+                <!-- يُملأ ديناميكيًا -->
+              </ul>
+            </div>
+
+            <div id="content-notes" class="tab-content">
+              <form id="inspect-add-note-form" style="display:flex; gap:8px; margin-bottom:12px;">
+                <input id="inspect-new-note-input" type="text" placeholder="اكتب ملاحظة خاصة للموظفين لا يراها الطالب..." style="flex:1; background:var(--input); border:1.5px solid var(--border); border-radius:8px; padding:8px 12px; font-family:inherit; font-size:13px; color:var(--text);">
+                <button class="button outline" type="submit" style="padding:6px 14px; font-size:13px;">إضافة ملاحظة</button>
+              </form>
+              <ul id="inspect-notes-list" class="timeline-list">
+                <!-- يُملأ ديناميكيًا -->
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="inspector-footer">
+          <button id="cancel-inspector-btn" class="button outline" type="button">إلغاء</button>
+          <button id="save-inspector-btn" class="button primary" type="button">
+            <span data-icon="check"></span>
+            حفظ التغييرات
+          </button>
+        </div>
+      </div>
     </dialog>
     <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
     <noscript>

@@ -88,13 +88,13 @@
   function route(initial = false) {
     const parts = location.hash.slice(1).split('/');
     if (parts[0] === 'main-content') { $('main-content').focus(); return; }
-    const name = ['home', 'submit', 'track', 'help'].includes(parts[0]) ? parts[0] : 'home';
+    const name = ['home', 'submit', 'track', 'help', 'admin'].includes(parts[0]) ? parts[0] : 'home';
     document.querySelectorAll('.page').forEach(page => { page.hidden = page.id !== 'page-' + name; });
     document.querySelectorAll('[data-route]').forEach(link => {
       if (link.dataset.route === name) link.setAttribute('aria-current', 'page');
       else link.removeAttribute('aria-current');
     });
-    const titles = { home: 'الرئيسية', submit: 'تقديم شكوى', track: 'متابعة الشكوى', help: 'المساعدة' };
+    const titles = { home: 'الرئيسية', submit: 'تقديم شكوى', track: 'متابعة الشكوى', help: 'المساعدة', admin: 'لوحة الإدارة' };
     document.title = titles[name] + ' | نظام الشكاوى — جامعة بوليتكنك فلسطين';
     closeMenu();
     if (name === 'track' && parts[1]) {
@@ -241,12 +241,13 @@
   $('review-dialog').addEventListener('cancel', event => { if (event.cancelable) { event.preventDefault(); closeDialog($('review-dialog')); } });
   $('edit-student').addEventListener('click', () => closeDialog($('review-dialog'), () => setStep(1)));
   $('edit-details').addEventListener('click', () => closeDialog($('review-dialog'), () => setStep(2)));
-  $('confirm-submit').addEventListener('click', () => {
+  $('confirm-submit').addEventListener('click', async () => {
     if (submitting || savedComplaint) return;
     submitting = true;
     $('confirm-submit').disabled = true;
     try {
-      savedComplaint = repository.createComplaint(getFormData());
+      const file = $('attachment').files[0];
+      savedComplaint = await repository.createComplaintAsync(getFormData(), file);
       closeDialog($('review-dialog'), () => {
         $('complaint-layout').hidden = true;
         $('submission-success').hidden = false;
@@ -326,38 +327,25 @@
 
   /* البحث في الشكاوى ومراحل الحالة. */
   const statusIcons = ['send', 'search', 'gear', 'check'];
-  repository.getExamples().forEach(example => {
-    const button = element('button', 'demo-example');
-    button.type = 'button'; button.dataset.exampleId = example.id;
-    button.setAttribute('aria-label', 'بيانات تجريبية: ' + example.id + '، ' + config.statuses[example.status]);
-    button.setAttribute('aria-pressed', 'false');
-    const id = element('strong', '', example.id); id.dir = 'ltr';
-    button.append(id, element('small', '', 'بيانات تجريبية'), element('span', '', config.statuses[example.status] + (example.status === 3 ? ' · جرّب التقييم' : '')));
-    button.addEventListener('click', () => {
-      $('tracking-number').value = example.id;
-      if (location.hash === '#track/' + example.id) searchComplaint(example.id);
-      else location.hash = 'track/' + example.id;
-    });
-    $('demo-examples').append(button);
-  });
-  function searchComplaint(number) {
-    const record = repository.findComplaint(number);
+
+  async function searchComplaint(number) {
+    $('tracking-error').textContent = '';
+    const record = await repository.findComplaintAsync(number);
     trackedComplaint = record;
     $('tracking-result').hidden = !record;
     $('tracking-empty').hidden = Boolean(record);
     $('rating-section').hidden = true;
-    document.querySelectorAll('[data-example-id]').forEach(button => { button.setAttribute('aria-pressed', String(Boolean(record && button.dataset.exampleId === record.id))); });
     if (!record) {
-      setError('tracking-number', number.trim() ? 'لم نجد شكوى بهذا الرقم في هذا المتصفح. تأكّد من الرقم واستخدم المتصفح الذي قدّمت منه الشكوى.' : 'أدخل رقم الشكوى للبحث.');
-      $('tracking-error').textContent = number.trim() ? 'لم نجد شكوى بهذا الرقم في هذا المتصفح. تأكّد من الرقم واستخدم المتصفح الذي قدّمت منه الشكوى.' : 'أدخل رقم الشكوى للبحث.';
+      setError('tracking-number', number.trim() ? 'لم نجد شكوى بهذا الرقم في سجلات الجامعة. تأكّد من الرقم المدخل.' : 'أدخل رقم الشكوى للبحث.');
+      $('tracking-error').textContent = number.trim() ? 'لم نجد شكوى بهذا الرقم في سجلات الجامعة. تأكّد من الرقم المدخل.' : 'أدخل رقم الشكوى للبحث.';
       return;
     }
     $('tracking-number').removeAttribute('aria-invalid');
     $('tracking-error').textContent = '';
     $('result-number').textContent = record.id;
-    $('result-demo').hidden = !record.isDemo;
+    if ($('result-demo')) $('result-demo').hidden = true;
     $('result-title').textContent = record.title;
-    $('result-service').textContent = config.services.find(service => service.id === record.service).name;
+    $('result-service').textContent = (config.services.find(service => service.id === record.service) || {}).name || record.serviceName || record.service;
     $('result-location').textContent = record.location;
     $('result-date').textContent = new Intl.DateTimeFormat('ar-PS', { dateStyle: 'medium', timeZone: 'Asia/Hebron' }).format(new Date(record.createdAt));
     $('result-description').textContent = record.description;
@@ -371,8 +359,8 @@
       if (index === record.status) { stage.setAttribute('aria-current', 'step'); stage.append(element('small', 'timeline-current', 'الحالة الحالية')); }
       $('status-timeline').append(stage);
     });
-    $('reply-title').textContent = record.isDemo ? 'رد تجريبي — بيانات وهمية' : 'رد الجهة المختصة';
-    $('result-reply').textContent = record.reply || 'لا يوجد رد من جهة مختصة. هذه الشكوى محفوظة محليًا فقط ولم تُرسل إلى الجامعة.';
+    $('reply-title').textContent = 'رد الجهة المختصة';
+    $('result-reply').textContent = record.reply || 'لا يوجد رد رسمي مسجل حتى الآن. الشكوى قيد المتابعة من قبل الدائرة المعنية.';
     if (record.status === 3) {
       $('rating-section').hidden = false;
       $('rating-form').reset();
@@ -410,15 +398,15 @@
   }
   function renderRating() {
     if (!trackedComplaint) return;
-    const saved = repository.getRating(trackedComplaint.id);
+    const saved = trackedComplaint.rating || repository.getRating(trackedComplaint.id);
     $('rating-form').hidden = Boolean(saved);
     $('rating-confirmation').hidden = !saved;
-    if (saved) $('rating-saved-text').textContent = 'حُفظ تقييمك (' + saved.stars + ' من 5 نجوم) في هذا المتصفح. شكرًا لمشاركتك.';
+    if (saved) $('rating-saved-text').textContent = 'حُفظ تقييمك (' + saved.stars + ' من 5 نجوم). شكرًا لمشاركتك.';
   }
   $('rating-form').querySelectorAll('input[name=resolution]').forEach(input => input.addEventListener('change', () => { $('resolution-error').textContent = ''; }));
-  $('rating-form').addEventListener('submit', event => {
+  $('rating-form').addEventListener('submit', async event => {
     event.preventDefault();
-    if (!trackedComplaint || trackedComplaint.status !== 3 || repository.getRating(trackedComplaint.id)) return;
+    if (!trackedComplaint || trackedComplaint.status !== 3 || (trackedComplaint.rating || repository.getRating(trackedComplaint.id))) return;
     const stars = Number($('rating-form').querySelector('input[name=stars]:checked')?.value || 0);
     const resolution = $('rating-form').querySelector('input[name=resolution]:checked')?.value;
     $('stars-error').textContent = stars ? '' : 'اختر عدد النجوم لتقييم تجربتك.';
@@ -430,7 +418,8 @@
     const submitButton = $('rating-form').querySelector('button[type=submit]');
     submitButton.disabled = true;
     try {
-      repository.saveRating(trackedComplaint.id, { stars, resolution, comment: $('rating-comment').value.trim() });
+      const saved = await repository.saveRatingAsync(trackedComplaint.id, { stars, resolution, comment: $('rating-comment').value.trim() });
+      trackedComplaint.rating = saved;
       renderRating();
       $('rating-confirmation').tabIndex = -1;
       $('rating-confirmation').focus({ preventScroll: true });
@@ -481,7 +470,7 @@
   function openAssistant(opener) {
     if ($('assistant-panel').open) return;
     assistantOpener = opener || document.activeElement;
-    if (!$('chat-messages').children.length) addMessage('أهلًا بك! أنا مساعدك التجريبي. أساعدك في صياغة ملاحظتك، وشرح التقديم، والبحث عن الشكاوى المحفوظة هنا. كيف أساعدك اليوم؟');
+    if (!$('chat-messages').children.length) addMessage('أهلًا بك في البوابة الرسمية لشكاوى جامعة بوليتكنك فلسطين! أنا مساعدك الذكي. أساعدك في صياغة ملاحظتك واختيار القسم المناسب ومتابعة شكواك. كيف يمكنني خدمتك اليوم؟');
     $('assistant-panel').showModal();
     $('assistant-launcher').setAttribute('aria-expanded', 'true');
     $('chat-input').focus();

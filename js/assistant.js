@@ -55,12 +55,12 @@
       const text = normalize(input);
       if (!input) return { text: 'اكتب رسالتك وسأساعدك.' };
       if (/الغاء|ابدا من جديد|بداية جديدة/.test(text)) { stage = 'idle'; problem = ''; service = ''; location = ''; return { text: 'يمكننا البدء من جديد. صف المشكلة بكلماتك، أو اختر ما تحتاجه.', choices: ['ساعدني أقدّم شكوى', 'كيف أتابع شكوتي؟', 'ما الخدمات المتاحة؟'] }; }
-      if (/كيف.*(?:اقدم|تقديم|اقدّم)|خطوات.*تقديم/.test(text)) return { text: 'لتقديم شكوى: أدخل بيانات الطالب، ثم نوع الخدمة والموقع والعنوان والوصف. راجع الملخص وأكّد الحفظ، واحتفظ برقم الشكوى. الحفظ تجريبي داخل هذا المتصفح فقط.', link: { href: '#submit', label: 'افتح نموذج الشكوى' } };
+      if (/كيف.*(?:اقدم|تقديم|اقدّم)|خطوات.*تقديم/.test(text)) return { text: 'لتقديم شكوى: اختر «تقديم شكوى»، وأدخل بيانات الطالب ونوع الخدمة والموقع والتفاصيل. راجع الملخص وأكّد الإرسال، وسيصلك رقم متابعة فوري.', link: { href: '#submit', label: 'افتح نموذج الشكوى' } };
       if (/متابع|اتابع|حالة شكوا|حاله شكوا|حالة الشكوي/.test(text) || /^\s*(?:PPU|DEMO)-/i.test(input)) {
         stage = 'track';
         const number = input.match(/(?:PPU|DEMO)-[A-Za-z0-9٠-٩-]+/i);
         if (number) return track(number[0]);
-        return { text: 'تجد الحالة في صفحة «متابعة الشكوى» باستخدام رقمها. أرسل الرقم هنا وسأبحث في البيانات المحلية فقط. يمكنك تجربة DEMO-1003 أو DEMO-1004.', choices: ['DEMO-1003', 'DEMO-1004'] };
+        return { text: 'يمكنك معرفة حالة شكواك بالبحث برقمها. أرسل رقم الشكوى هنا وسأعرض لك تفاصيلها فورًا.' };
       }
       if (/خدمات.*متاح|انواع.*خدم|ما الخدمات/.test(text)) return { text: 'الخدمات المتاحة: الإنترنت، القاعات والمقاعد، النظافة، المرافق، المكتبة، وخدمات أخرى. اختر منها في الصفحة الرئيسية أو في نموذج الشكوى.', choices: ['ساعدني أقدّم شكوى'] };
       if (/ساعدني.*(?:اقدم|اقدّم|شكوي)|صياغة شكوي|صيغ.*شكوي/.test(text)) { stage = 'problem'; problem = ''; service = ''; location = ''; return { text: 'بكل سرور. صف المشكلة بكلماتك واذكر المكان إن أمكن، مثل: «الإنترنت في مبنى C سيئ وبفصل كثير».' }; }
@@ -89,9 +89,9 @@
     }
     function track(number) {
       const record = window.PPURepository.findComplaint(number);
-      if (!record) return { text: 'لم أجد شكوى بهذا الرقم في بيانات هذا المتصفح. تحقّق من الرقم أو جرّب DEMO-1004. لا أستطيع البحث في أنظمة الجامعة.', choices: ['DEMO-1004'] };
+      if (!record) return { text: 'لم أجد شكوى مسجلة بهذا الرقم في السجلات الرسمية. تأكّد من كتابة الرقم بشكل صحيح (مثل PPU-2026-XXXX).' };
       stage = 'idle';
-      return { text: (record.isDemo ? 'بيانات تجريبية وهمية\n' : 'شكوى محفوظة محليًا فقط\n') + 'رقم الشكوى: ' + record.id + '\nالعنوان: ' + record.title + '\nالحالة: ' + config.statuses[record.status] + '\n' + (record.reply ? record.reply : 'لا يوجد رد من جهة مختصة.'), link: { href: '#track/' + encodeURIComponent(record.id), label: 'عرض تفاصيل الشكوى' } };
+      return { text: 'رقم الشكوى: ' + record.id + '\nالعنوان: ' + record.title + '\nالحالة: ' + config.statuses[record.status] + '\n' + (record.reply ? 'الرد الرسمي: ' + record.reply : 'لا يوجد رد رسمي مسجل حتى الآن. الشكوى قيد المتابعة.'), link: { href: '#track/' + encodeURIComponent(record.id), label: 'عرض تفاصيل الشكوى' } };
     }
     return { respond };
   }

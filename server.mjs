@@ -1,25 +1,57 @@
-// خادم ملفات ثابتة للمعاينة فقط؛ ليس باك إند للشكاوى ولا يستقبل بيانات.
-import http from 'node:http';
-import { readFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
-import path from 'node:path';
+/**
+ * Palestine Polytechnic University (PPU) - Complaints System Server
+ * Full-Stack Node.js & Express server with dual-storage (SQLite / MySQL) engine.
+ */
+import app from './server/app.js';
+import { config } from './server/config/env.js';
+import { getDatabaseAdapter, closeDatabaseConnection } from './server/database/connection.js';
 
-const root = path.dirname(fileURLToPath(import.meta.url));
-const port = Number(process.env.PORT || 8080);
-const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ttf': 'font/ttf' };
-const server = http.createServer(async (request, response) => {
-  if (!['GET', 'HEAD'].includes(request.method)) { response.writeHead(405); response.end(); return; }
+async function bootstrap() {
   try {
-    const url = new URL(request.url, 'http://localhost');
-    const pathname = decodeURIComponent(url.pathname);
-    const relativePath = pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');
-    const filename = path.resolve(root, relativePath);
-    const allowed = relativePath === 'index.html' || /^(assets|css|js)\//.test(relativePath);
-    if (!filename.startsWith(root + path.sep) || !allowed) { response.writeHead(404); response.end('Not found'); return; }
-    const content = await readFile(filename);
-    response.writeHead(200, { 'Content-Type': types[path.extname(filename)] || 'application/octet-stream', 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff' });
-    response.end(request.method === 'HEAD' ? undefined : content);
-  } catch (error) { response.writeHead(404); response.end('Not found'); }
-});
-server.on('error', error => { console.error(error.code === 'EADDRINUSE' ? `المنفذ ${port} مستخدم. جرّب PORT=8081 npm start` : error.message); process.exitCode = 1; });
-server.listen(port, '127.0.0.1', () => console.log(`نظام الشكاوى: http://localhost:${port}`));
+    console.log('====================================================');
+    console.log('🏛️  نظام الشكاوى — جامعة بوليتكنك فلسطين (PPU)');
+    console.log('====================================================');
+
+    // Initialize Database layer
+    const adapter = await getDatabaseAdapter();
+
+    const server = app.listen(config.port, '0.0.0.0', () => {
+      console.log(`🚀 الخادم الموحد (الواجهة الأمامية + الباك إند) يعمل بنجاح!`);
+      console.log(`🌐 المنفذ النشط (Port): ${config.port} (0.0.0.0:${config.port})`);
+      console.log(`📦 محرك قاعدة البيانات النشط: [${adapter.engineName.toUpperCase()}]`);
+      console.log(`💻 الواجهة الرئيسية للطلبة: http://0.0.0.0:${config.port}/`);
+      console.log(`👔 بوابة الإدارة والمشرفين: http://0.0.0.0:${config.port}/#admin`);
+      console.log(`🔌 واجهة الـ API البرمجية: http://0.0.0.0:${config.port}/api/v1/health`);
+      console.log(`🔑 بيانات الدخول الافتراضية: ${config.defaultAdmin.email} / ${config.defaultAdmin.password}`);
+      console.log('====================================================');
+    });
+
+    server.on('error', error => {
+      if (error.code === 'EADDRINUSE') {
+        console.error(`❌ المنفذ ${config.port} مستخدم حاليًا. يمكنك تغيير PORT في ملف .env أو تشغيل: PORT=8081 npm start`);
+      } else {
+        console.error('❌ خطأ في تشغيل السيرفر:', error.message);
+      }
+      process.exit(1);
+    });
+
+    // Graceful Shutdown
+    const shutdown = async () => {
+      console.log('\n🛑 جاري إيقاف الخادم بأمان...');
+      server.close(async () => {
+        await closeDatabaseConnection();
+        console.log('✅ تم إغلاق اتصالات الخادم وقواعد البيانات بنجاح.');
+        process.exit(0);
+      });
+    };
+
+    process.on('SIGINT', shutdown);
+    process.on('SIGTERM', shutdown);
+
+  } catch (error) {
+    console.error('❌ فشل في بدء تشغيل النظام:', error);
+    process.exit(1);
+  }
+}
+
+bootstrap();
